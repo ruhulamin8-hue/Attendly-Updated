@@ -62,7 +62,7 @@ main{flex:1;min-height:0;overflow-y:auto;padding-block:6px 18px;scroll-behavior:
 .row{display:flex;gap:10px;flex-wrap:wrap}
 .row>*{flex:1 1 140px;min-width:0}
 label.f{display:flex;flex-direction:column;gap:5px;font-size:12px;font-weight:500;color:var(--muted)}
-input[type=text],input[type=date],select,input[type=search]{
+input[type=text],input[type=date],input[type=time],select,input[type=search]{
   width:100%;height:42px;border:1px solid var(--line);border-radius:9px;background:var(--surface2);padding:0 11px;color:var(--ink);font-size:14px}
 input[type=file]{width:100%;font-size:13px;color:var(--muted)}
 input:focus-visible,select:focus-visible,button:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
@@ -82,6 +82,10 @@ input:focus-visible,select:focus-visible,button:focus-visible{outline:2px solid 
 .stu:first-child{border-top:0}
 .roll{width:62px;flex:none;font:600 12px var(--font-head);color:var(--muted);font-variant-numeric:tabular-nums}
 .nm{flex:1;min-width:0;font-weight:500;overflow-wrap:anywhere}
+.rbtns .btn{padding:0 6px;white-space:nowrap;font-size:13.5px}
+.sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
+.who{flex:1;min-width:0}
+.who .roll{display:block;width:auto;margin-top:1px;overflow-wrap:anywhere}
 .seg{display:flex;border:1px solid var(--line);border-radius:9px;overflow:hidden;flex:none}
 .seg button{width:42px;height:36px;border:0;background:var(--surface2);font-weight:700;cursor:pointer;color:var(--muted)}
 .seg button.on-p{background:var(--good);color:#fff}
@@ -137,6 +141,24 @@ a{color:var(--accent)}
 .pvbar .btn.sm{height:36px;min-width:36px}
 #pvScroll{flex:1;min-height:0;overflow:auto;padding:12px;background:var(--surface2);touch-action:pan-x pan-y pinch-zoom}
 #pvScroll canvas.sheet{display:block;margin:0 auto 14px;background:#fff;box-shadow:0 1px 3px rgba(0,0,0,.25),0 6px 18px rgba(0,0,0,.12);max-width:none}
+#lock{position:fixed;inset:0;z-index:100;background:var(--bg);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;padding:24px max(24px,env(safe-area-inset-left,0px));overflow:auto}
+#lock[hidden]{display:none}
+#lock .lk-logo{width:56px;height:56px;border-radius:16px;background:var(--accent);color:var(--accent-ink);display:grid;place-items:center}
+#lock h1{font-size:22px;font-weight:700;margin-top:4px}
+#lock p{margin:0;color:var(--muted);text-align:center;min-height:20px;font-size:13px}
+#lock p.err{color:var(--bad);font-weight:600}
+.dots{display:flex;gap:14px;margin:6px 0 4px}
+.dots i{width:14px;height:14px;border-radius:50%;border:2px solid var(--muted);transition:background .1s}
+.dots i.on{background:var(--accent);border-color:var(--accent)}
+.pad{display:grid;grid-template-columns:repeat(3,72px);gap:14px}
+.pad button{width:72px;height:72px;border-radius:50%;border:1px solid var(--line);background:var(--surface);font:600 24px var(--font-head);color:var(--ink);cursor:pointer;display:grid;place-items:center;padding:0}
+.pad button:active{background:var(--accent-soft)}
+.pad button.ghost{border-color:transparent;background:none}
+.pad button svg{width:26px;height:26px}
+#lkForgot,#lkCancel{border:0;background:none;color:var(--accent);font-weight:600;cursor:pointer;padding:8px}
+@keyframes shake{20%,60%{transform:translateX(-8px)}40%,80%{transform:translateX(8px)}}
+.dots.shake{animation:shake .35s}
+@media (prefers-reduced-motion: reduce){.dots.shake{animation:none}}
 @media (prefers-reduced-motion: reduce){main{scroll-behavior:auto}#toast{transition:none}}
 </style>
 </head>
@@ -158,6 +180,23 @@ a{color:var(--accent)}
     <button data-tab="developer"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M8.5 8L4.5 12l4 4M15.5 8l4 4-4 4M13.5 5l-3 14"/></svg>Developer</button>
   </nav>
 </div>
+<div id="lock" role="dialog" aria-modal="true" aria-label="Unlock Attendly" hidden>
+  <div class="lk-logo" aria-hidden="true"><svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="11" width="14" height="9" rx="2.5"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/></svg></div>
+  <h1 id="lkTitle">Enter PIN</h1>
+  <p id="lkMsg"></p>
+  <div class="dots" id="lkDots" aria-hidden="true"><i></i><i></i><i></i><i></i></div>
+  <div class="pad" id="lkPad">
+    <button data-k="1">1</button><button data-k="2">2</button><button data-k="3">3</button>
+    <button data-k="4">4</button><button data-k="5">5</button><button data-k="6">6</button>
+    <button data-k="7">7</button><button data-k="8">8</button><button data-k="9">9</button>
+    <button class="ghost" id="lkBio" data-k="bio" aria-label="Use fingerprint or phone lock" hidden><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 11v3.5c0 2-.5 4-1.5 5.5M8.5 9.5A4 4 0 0 1 16 11v2c0 2.2-.3 4.3-1 6M5.5 8A7.5 7.5 0 0 1 19 11v1.5M5 12v-1M6.5 17c.6-1.7 1-3.5 1-5.5"/></svg></button>
+    <span id="lkGap"></span>
+    <button data-k="0">0</button>
+    <button class="ghost" data-k="del" aria-label="Delete"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 5H9l-6 7 6 7h12z"/><path d="M13 9.5l5 5M18 9.5l-5 5"/></svg></button>
+  </div>
+  <button id="lkForgot" hidden>Forgot PIN?</button>
+  <button id="lkCancel" hidden>Cancel</button>
+</div>
 <div id="pv" hidden role="dialog" aria-label="Report preview">
   <div class="pvbar">
     <button class="btn sm" id="pvClose" aria-label="Close preview">&times;</button>
@@ -176,7 +215,8 @@ const DEV = {
   role: 'Lecturer',
   dept: 'Biomedical Engineering Department',
   email: '',   /* optional: shown under Contact when filled */
-  github: ''   /* optional: your GitHub username */
+  github: '',  /* optional: your GitHub username */
+  googleClientId: ''   /* Google Drive backup: paste your OAuth client ID here to skip typing it in the app */
 };
 
 const SEMS = [1,2,3,4,5,6,7,8];
@@ -191,13 +231,13 @@ const prettyDate = s => { const [y,m,d] = s.split('-').map(Number); return new D
 /* ---- Data ---- */
 function seed(){
   const subs = [
-    {id:'s1', name:'Data Structures', sem:3},
-    {id:'s2', name:'Database Systems', sem:3},
-    {id:'s3', name:'Operating Systems', sem:3}
+    {id:'s1', name:'Data Structures', sem:3, branch:'Computer Science'},
+    {id:'s2', name:'Database Systems', sem:3, branch:'Computer Science'},
+    {id:'s3', name:'Operating Systems', sem:3, branch:'Computer Science'}
   ];
   const names = ['Aarav Sharma','Diya Patel','Rohan Gupta','Ananya Iyer','Vikram Singh','Meera Nair','Kabir Khan','Isha Reddy','Arjun Verma','Priya Das','Sanjay Mishra','Neha Kulkarni'];
   const cats = ['GEN','OBC','GEN','SC','GEN','OBC','GEN','EWS','GEN','SC','OBC','GEN'];
-  const studs = names.map((n,i) => ({id:'t'+i, roll:'CS3' + pad(i+1), name:n, sem:3, cat:cats[i]}));
+  const studs = names.map((n,i) => ({id:'t'+i, roll:'CS3' + pad(i+1), name:n, sem:3, cat:cats[i], branch:'Computer Science'}));
   const misses = [0.04,0.08,0.15,0.03,0.38,0.1,0.22,0.05,0.3,0.12,0.45,0.06];
   let r = 7;
   const rnd = () => (r = (r * 9301 + 49297) % 233280) / 233280;
@@ -215,15 +255,25 @@ function seed(){
       recs[ymd(day) + '|' + sb.id] = m;
     });
   }
-  return {subjects:subs, students:studs, records:recs, sample:true};
+  return {branches:['Computer Science'], subjects:subs, students:studs, records:recs, sample:true};
+}
+function migrate(o){
+  if (!o.branches){
+    const b = (o.report && o.report.branch) || 'Mechanical Engineering';
+    o.branches = [b];
+    (o.subjects || []).forEach(x => { if (!x.branch) x.branch = b; });
+    (o.students || []).forEach(x => { if (!x.branch) x.branch = b; });
+  }
+  return o;
 }
 function load(){
-  try { const r = localStorage.getItem(KEY); if (r) { const o = JSON.parse(r); if (o && o.subjects) return o; } } catch(e){}
+  try { const r = localStorage.getItem(KEY); if (r) { const o = JSON.parse(r); if (o && o.subjects) return migrate(o); } } catch(e){}
   return seed();
 }
-function persist(){ try { localStorage.setItem(KEY, JSON.stringify(S)); } catch(e){} }
+const drv = {at: '', exp: 0, t: 0, busy: false, found: null, msg: '', err: false};
+function persist(){ try { localStorage.setItem(KEY, JSON.stringify(S)); } catch(e){} try { driveAuto(); } catch(e){} }
 let S = load();
-const ui = {date: ymd(new Date()), subjectId: '', search: '', draft: null, dirty: false, dashSem: '', dashSub: '', importRows: null, stuSem: '', repSem: '', repSub: '', repFill: 'saved'};
+const ui = {date: ymd(new Date()), subjectId: '', search: '', draft: null, dirty: false, dashSem: '', dashSub: '', importRows: null, stuSem: '', stuBranch: '', branch: '', cls: null, time: '', dashBranch: '', repSynced: '', repSem: '', repSub: '', repFill: 'saved'};
 
 function toast(msg){
   const t = $('#toast'); t.textContent = msg; t.classList.add('show');
@@ -238,7 +288,7 @@ function semOptions(sel, withAll){
   return (withAll ? '<option value="">All semesters</option>' : '') + SEMS.map(n => `<option value="${n}"${String(sel)===String(n)?' selected':''}>Semester ${n}</option>`).join('');
 }
 const pctClass = p => p >= 75 ? '' : p >= 60 ? 'warn' : 'bad';
-const pctBadge = p => p >= 75 ? '<span class="badge ok">On track</span>' : p >= 60 ? '<span class="badge dirty">Low</span>' : '<span class="badge bad">Critical</span>';
+const pctBadge = p => p >= 60 ? '<span class="badge ok">Eligible</span>' : p >= 40 ? '<span class="badge bad">NC</span>' : '<span class="badge bad">DC</span>';
 
 /* ---- Navigation ---- */
 const TABS = ['attendance','import','dashboard','report','developer'];
@@ -256,31 +306,46 @@ window.addEventListener('hashchange', render);
 $('#tabs').addEventListener('click', e => { const b = e.target.closest('button'); if (b) go(b.dataset.tab); });
 
 /* ---- Window 1: Attendance ---- */
+/* One saved record = one class. Key: date|subjectId|HH:MM  (older records without a time: date|subjectId) */
+const nowHM = () => { const d = new Date(); return pad(d.getHours()) + ':' + pad(d.getMinutes()); };
+const fmtT = t => { if (!t) return 'No time'; const [hh, mm] = t.split(':').map(Number); return ((hh % 12) || 12) + ':' + pad(mm) + ' ' + (hh < 12 ? 'AM' : 'PM'); };
+const recKey = (date, subId, t) => date + '|' + subId + (t ? '|' + t : '');
+const parseKey = k => { const p = k.split('|'); return {date: p[0], subId: p[1], time: p[2] || ''}; };
+const classTimes = (date, subId) => Object.keys(S.records).map(parseKey).filter(c => c.date === date && c.subId === subId).map(c => c.time).sort();
 function currentSubject(){ return S.subjects.find(x => x.id === ui.subjectId); }
-function studentsFor(sub){ return sub ? S.students.filter(s => s.sem === sub.sem).sort((a,b) => a.roll.localeCompare(b.roll, undefined, {numeric:true})) : []; }
+function studentsFor(sub){ return sub ? S.students.filter(s => s.sem === sub.sem && s.branch === sub.branch).sort((a,b) => a.roll.localeCompare(b.roll, undefined, {numeric:true})) : []; }
 function loadDraft(){
   const sub = currentSubject();
   if (!sub){ ui.draft = null; return; }
-  const saved = S.records[ui.date + '|' + sub.id];
+  if (ui.cls !== null && !S.records[recKey(ui.date, sub.id, ui.cls)]) ui.cls = null;
+  const saved = ui.cls === null ? null : S.records[recKey(ui.date, sub.id, ui.cls)];
   const m = {};
   studentsFor(sub).forEach(s => { m[s.id] = saved && saved[s.id] ? saved[s.id] : 'P'; });
   ui.draft = {marks: m, saved: !!saved};
   ui.dirty = false;
+  if (ui.cls === null){ if (!ui.time) ui.time = nowHM(); } else ui.time = ui.cls;
 }
 function renderAttendance(){
   const v = $('#view');
   if (!S.subjects.length){
-    v.innerHTML = `<h1 class="page-title">Attendance</h1><p class="page-sub">Mark who is present today.</p>
+    v.innerHTML = `<h1 class="sr">Attendance</h1><p class="page-sub">Mark who is present today.</p>
       <div class="card empty">Add a subject and import your students first.<br><button class="btn primary" data-go="import">Open Import</button></div>`;
     v.querySelector('[data-go]').onclick = () => go('import');
     return;
   }
-  if (!currentSubject()) ui.subjectId = S.subjects[0].id;
-  v.innerHTML = `<h1 class="page-title">Attendance</h1><p class="page-sub">Everyone starts as present. Tap A for absentees, then save.</p>
+  if (!S.branches.includes(ui.branch)) ui.branch = S.branches.find(b => S.subjects.some(x => x.branch === b)) || S.branches[0] || '';
+  const bSubs = S.subjects.filter(x => x.branch === ui.branch);
+  if (!bSubs.some(x => x.id === ui.subjectId)) ui.subjectId = bSubs[0] ? bSubs[0].id : '';
+  v.innerHTML = `<h1 class="sr">Attendance</h1>
     <div class="card">
+      <label class="f" style="margin-bottom:10px">Branch<select id="attBranch">${S.branches.map(b => `<option value="${esc(b)}"${b===ui.branch?' selected':''}>${esc(b)}</option>`).join('')}</select></label>
       <div class="row">
         <label class="f">Date<input type="date" id="attDate" value="${ui.date}" max="${ymd(new Date())}"></label>
-        <label class="f">Subject<select id="attSubject">${S.subjects.map(x => `<option value="${x.id}"${x.id===ui.subjectId?' selected':''}>${esc(x.name)} (Sem ${x.sem})</option>`).join('')}</select></label>
+        <label class="f">Subject<select id="attSubject">${bSubs.length ? bSubs.map(x => `<option value="${x.id}"${x.id===ui.subjectId?' selected':''}>${esc(x.name)} (Sem ${x.sem})</option>`).join('') : '<option value="">No subjects</option>'}</select></label>
+      </div>
+      <div class="row" style="margin-top:10px">
+        <label class="f">Time<input type="time" id="attTime"></label>
+        <label class="f">Class<select id="attClass"></select></label>
       </div>
       <div style="margin-top:10px;display:flex;justify-content:space-between;align-items:center;gap:8px"><span id="attStatus"></span><span class="hint" style="margin:0" id="attDay"></span></div>
     </div>
@@ -289,8 +354,11 @@ function renderAttendance(){
     <input type="search" id="attSearch" placeholder="Search name or roll no." value="${esc(ui.search)}" style="margin-bottom:10px">
     <div class="card" id="attList" style="padding-block:6px"></div>
     <div class="savebar"><button class="btn primary" id="attSave">Save attendance</button></div>`;
-  $('#attDate').onchange = e => { ui.date = e.target.value || ymd(new Date()); loadDraft(); paintAttendance(); };
-  $('#attSubject').onchange = e => { ui.subjectId = e.target.value; loadDraft(); paintAttendance(); };
+  $('#attBranch').onchange = e => { ui.branch = e.target.value; ui.subjectId = ''; ui.cls = null; renderAttendance(); };
+  $('#attDate').onchange = e => { ui.date = e.target.value || ymd(new Date()); ui.cls = null; loadDraft(); paintClasses(); paintAttendance(); };
+  $('#attSubject').onchange = e => { ui.subjectId = e.target.value; ui.cls = null; loadDraft(); paintClasses(); paintAttendance(); };
+  $('#attTime').oninput = e => { ui.time = e.target.value; if (ui.cls !== null){ ui.dirty = true; paintAttendance(); } };
+  $('#attClass').onchange = e => { const v = e.target.value; ui.cls = v === '+' ? null : (v === '-' ? '' : v); if (ui.cls === null) ui.time = nowHM(); loadDraft(); paintClasses(); paintAttendance(); };
   $('#attSearch').oninput = e => { ui.search = e.target.value; paintList(); };
   v.querySelector('[data-act=allp]').onclick = () => bulk('P');
   v.querySelector('[data-act=alla]').onclick = () => bulk('A');
@@ -299,7 +367,14 @@ function renderAttendance(){
     const b = e.target.closest('button[data-m]'); if (!b) return;
     ui.draft.marks[b.dataset.id] = b.dataset.m; ui.dirty = true; paintAttendance();
   };
-  loadDraft(); paintAttendance();
+  if (ui.cls === null) ui.time = nowHM();
+  loadDraft(); paintClasses(); paintAttendance();
+}
+function paintClasses(){
+  const sub = currentSubject(), times = sub ? classTimes(ui.date, sub.id) : [];
+  $('#attClass').innerHTML = '<option value="+">New class</option>' + times.map(t => { const v = t || '-', on = ui.cls !== null && ui.cls === t; return `<option value="${v}"${on ? ' selected' : ''}>${esc(fmtT(t))}</option>`; }).join('');
+  if (ui.cls === null) $('#attClass').value = '+';
+  $('#attTime').value = ui.time;
 }
 function bulk(m){ if (!ui.draft) return; Object.keys(ui.draft.marks).forEach(k => ui.draft.marks[k] = m); ui.dirty = true; paintAttendance(); }
 function paintAttendance(){
@@ -317,16 +392,23 @@ function paintList(){
   const all = studentsFor(sub);
   const list = all.filter(s => !q || s.name.toLowerCase().includes(q) || s.roll.toLowerCase().includes(q));
   const el = $('#attList');
+  if (!sub){ el.innerHTML = '<div class="empty">No subjects in this branch yet.<br><button class="btn primary" data-go>Open Import</button></div>'; el.querySelector('[data-go]').onclick = () => go('import'); return; }
   if (!all.length){ el.innerHTML = `<div class="empty">No students in Semester ${sub ? sub.sem : ''} yet.<br><button class="btn primary" data-go>Import students</button></div>`; el.querySelector('[data-go]').onclick = () => go('import'); return; }
   if (!list.length){ el.innerHTML = '<div class="empty">No student matches your search.</div>'; return; }
   const marks = ui.draft.marks;
-  el.innerHTML = list.map(s => `<div class="stu"><span class="roll">${esc(s.roll)}</span><span class="nm">${esc(s.name)}</span>
+  el.innerHTML = list.map(s => `<div class="stu"><div class="who"><span class="nm">${esc(s.name)}</span><span class="roll">${esc(s.roll)}</span></div>
     <div class="seg" role="group" aria-label="Mark ${esc(s.name)}"><button data-id="${s.id}" data-m="P" class="${marks[s.id]==='P'?'on-p':''}" aria-pressed="${marks[s.id]==='P'}" aria-label="Present">P</button><button data-id="${s.id}" data-m="A" class="${marks[s.id]==='A'?'on-a':''}" aria-pressed="${marks[s.id]==='A'}" aria-label="Absent">A</button></div></div>`).join('');
 }
 function saveAttendance(){
   const sub = currentSubject(); if (!sub || !ui.draft) return;
-  S.records[ui.date + '|' + sub.id] = {...ui.draft.marks};
-  persist(); ui.draft.saved = true; ui.dirty = false; paintAttendance();
+  const t = ui.time;
+  if (ui.cls === null && !t) return toast('Enter the class time');
+  const key = recKey(ui.date, sub.id, t), oldKey = ui.cls === null ? null : recKey(ui.date, sub.id, ui.cls);
+  if (key !== oldKey && S.records[key]) return toast('A class is already saved at this time. Pick it from Class, or change the time.');
+  if (oldKey && oldKey !== key) delete S.records[oldKey];
+  S.records[key] = {...ui.draft.marks};
+  ui.cls = t;
+  persist(); ui.draft.saved = true; ui.dirty = false; paintClasses(); paintAttendance();
   const a = Object.values(ui.draft.marks).filter(x => x === 'A').length;
   toast(`Saved. ${Object.keys(ui.draft.marks).length - a} present, ${a} absent`);
 }
@@ -370,31 +452,42 @@ function parseSheet(rows){
   });
   return out;
 }
+function branchOptions(sel){ return S.branches.map(b => `<option value="${esc(b)}"${b===sel?' selected':''}>${esc(b)}</option>`).join(''); }
 function renderImport(){
   const v = $('#view');
+  if (!S.branches.includes(ui.stuBranch)) ui.stuBranch = S.branches[0] || '';
   v.innerHTML = `<h1 class="page-title">Import</h1><p class="page-sub">Bring in students and set up subjects for each semester.</p>
     <div id="sampleBanner"></div>
+    <div class="card"><h2>Branches</h2>
+      <div class="row"><label class="f">Branch name<input type="text" id="brName" placeholder="e.g. Mechanical Engineering" autocomplete="off"></label></div>
+      <button class="btn primary" id="brAdd" style="margin-top:10px;width:100%">Add branch</button>
+      <div id="brList" style="margin-top:6px"></div>
+    </div>
     <div class="card"><h2>Import students from Excel</h2>
-      <label class="f">Semester for these students<select id="impSem">${semOptions(ui.stuSem || 3)}</select></label>
+      <label class="f">Branch<select id="impBranch">${branchOptions(ui.stuBranch)}</select></label>
+      <label class="f" style="margin-top:10px">Semester for these students<select id="impSem">${semOptions(ui.stuSem || 3)}</select></label>
       <label class="f" style="margin-top:10px">Excel or CSV file<input type="file" id="impFile" accept=".xlsx,.xls,.csv"></label>
       <p class="hint">Use headers Roll No and Name. A Category column (GEN, OBC, SC...) is optional and appears on the report. A row with a roll number already in the semester updates that student.</p>
       <div id="impPreview"></div>
     </div>
     <div class="card"><h2>Add subject</h2>
       <div class="row"><label class="f">Subject name<input type="text" id="subName" placeholder="e.g. Computer Networks" autocomplete="off"></label>
-      <label class="f">Semester<select id="subSem">${semOptions(ui.stuSem || 3)}</select></label></div>
+      <label class="f">Semester<select id="subSem">${semOptions(ui.stuSem || 3)}</select></label>
+      <label class="f">Branch<select id="subBranch">${branchOptions(ui.stuBranch)}</select></label></div>
       <button class="btn primary" id="subAdd" style="margin-top:10px;width:100%">Add subject</button>
       <div id="subList" style="margin-top:6px"></div>
     </div>
     <div class="card"><h2>Add one student</h2>
       <div class="row"><label class="f">Roll no.<input type="text" id="oneRoll" autocomplete="off"></label><label class="f">Name<input type="text" id="oneName" autocomplete="off"></label>
       <label class="f">Category<input type="text" id="oneCat" list="catList" placeholder="GEN" autocomplete="off"></label>
-      <label class="f">Semester<select id="oneSem">${semOptions(ui.stuSem || 3)}</select></label></div>
+      <label class="f">Semester<select id="oneSem">${semOptions(ui.stuSem || 3)}</select></label>
+      <label class="f">Branch<select id="oneBranch">${branchOptions(ui.stuBranch)}</select></label></div>
       <datalist id="catList"><option value="GEN"><option value="OBC"><option value="SC"><option value="ST(P)"><option value="ST(H)"><option value="EWS"></datalist>
       <button class="btn" id="oneAdd" style="margin-top:10px;width:100%">Add student</button>
     </div>
     <div class="card"><h2>Students</h2>
-      <label class="f">Show semester<select id="stuSem">${semOptions(ui.stuSem || 3)}</select></label>
+      <div class="row"><label class="f">Show branch<select id="stuBranch">${branchOptions(ui.stuBranch)}</select></label>
+      <label class="f">Show semester<select id="stuSem">${semOptions(ui.stuSem || 3)}</select></label></div>
       <div id="stuList" style="margin-top:6px"></div>
     </div>`;
   ui.stuSem = ui.stuSem || '3';
@@ -402,18 +495,23 @@ function renderImport(){
   $('#subAdd').onclick = addSubject;
   $('#oneAdd').onclick = addOne;
   $('#stuSem').onchange = e => { ui.stuSem = e.target.value; paintStudents(); };
-  $('#subList').onclick = e => { const b = e.target.closest('[data-del]'); if (b) confirmTap(b, 'Delete', () => { const id = b.dataset.del; S.subjects = S.subjects.filter(x => x.id !== id); Object.keys(S.records).forEach(k => { if (k.endsWith('|' + id)) delete S.records[k]; }); persist(); paintSubjects(); toast('Subject deleted'); }); };
+  $('#stuBranch').onchange = e => { ui.stuBranch = e.target.value; paintStudents(); };
+  $('#brAdd').onclick = addBranch;
+  $('#brList').onclick = e => { const b = e.target.closest('[data-delbr]'); if (!b) return; const n = b.dataset.delbr;
+    if (S.subjects.some(x => x.branch === n) || S.students.some(x => x.branch === n)) return toast('Remove its subjects and students first');
+    confirmTap(b, 'Delete', () => { S.branches = S.branches.filter(x => x !== n); persist(); renderImport(); toast('Branch deleted'); }); };
+  $('#subList').onclick = e => { const b = e.target.closest('[data-del]'); if (b) confirmTap(b, 'Delete', () => { const id = b.dataset.del; S.subjects = S.subjects.filter(x => x.id !== id); Object.keys(S.records).forEach(k => { if (parseKey(k).subId === id) delete S.records[k]; }); persist(); paintSubjects(); toast('Subject deleted'); }); };
   $('#stuList').onclick = e => {
     const b = e.target.closest('[data-del],[data-clear]'); if (!b) return;
-    if (b.dataset.clear) return confirmTap(b, '', () => { const sem = +b.dataset.clear; const ids = new Set(S.students.filter(s => s.sem === sem).map(s => s.id)); S.students = S.students.filter(s => s.sem !== sem); Object.values(S.records).forEach(m => ids.forEach(id => delete m[id])); persist(); paintStudents(); toast(`Semester ${sem} students removed`); });
+    if (b.dataset.clear) return confirmTap(b, '', () => { const sem = +b.dataset.clear, br = ui.stuBranch; const ids = new Set(S.students.filter(s => s.sem === sem && s.branch === br).map(s => s.id)); S.students = S.students.filter(s => !(s.sem === sem && s.branch === br)); Object.values(S.records).forEach(m => ids.forEach(id => delete m[id])); persist(); paintStudents(); toast(`Semester ${sem} students removed from ${br}`); });
     confirmTap(b, '', () => { const id = b.dataset.del; S.students = S.students.filter(s => s.id !== id); Object.values(S.records).forEach(m => delete m[id]); persist(); paintStudents(); toast('Student removed'); });
   };
-  paintSample(); paintSubjects(); paintStudents();
+  paintSample(); paintBranches(); paintSubjects(); paintStudents();
 }
 function paintSample(){
   const el = $('#sampleBanner'); if (!el) return;
   el.innerHTML = S.sample ? '<div class="banner"><span>Example data is loaded so you can try the app. Clear it before real use.</span><button class="btn sm danger" id="clearSample">Clear</button></div>' : '';
-  if (S.sample) $('#clearSample').onclick = function(){ confirmTap(this, '', () => { S = {subjects:[], students:[], records:{}, sample:false}; persist(); ui.subjectId = ''; ui.draft = null; renderImport(); toast('Example data cleared'); }); };
+  if (S.sample) $('#clearSample').onclick = function(){ confirmTap(this, '', () => { S = {branches:[], subjects:[], students:[], records:{}, sample:false}; persist(); ui.subjectId = ''; ui.draft = null; renderImport(); toast('Example data cleared'); }); };
 }
 async function onFile(e){
   const f = e.target.files[0]; const box = $('#impPreview');
@@ -436,47 +534,59 @@ async function onFile(e){
   }
 }
 function doImport(){
-  const sem = +$('#impSem').value; let added = 0, updated = 0;
+  const sem = +$('#impSem').value, branch = $('#impBranch').value; let added = 0, updated = 0;
+  if (!branch) return toast('Add a branch first');
   ui.importRows.forEach(r => {
-    const ex = S.students.find(s => s.sem === sem && s.roll.toLowerCase() === r.roll.toLowerCase());
-    if (ex){ ex.name = r.name; if (r.cat) ex.cat = r.cat; updated++; } else { S.students.push({id:'t' + uid(), roll:r.roll, name:r.name, sem, cat:r.cat || ''}); added++; }
+    const ex = S.students.find(s => s.sem === sem && s.branch === branch && s.roll.toLowerCase() === r.roll.toLowerCase());
+    if (ex){ ex.name = r.name; if (r.cat) ex.cat = r.cat; updated++; } else { S.students.push({id:'t' + uid(), roll:r.roll, name:r.name, sem, branch, cat:r.cat || ''}); added++; }
   });
-  persist(); ui.importRows = null; ui.stuSem = String(sem);
+  persist(); ui.importRows = null; ui.stuSem = String(sem); ui.stuBranch = branch;
   $('#impFile').value = ''; $('#impPreview').innerHTML = '';
-  $('#stuSem').value = String(sem); paintStudents();
-  toast(`${added} added, ${updated} updated in Semester ${sem}`);
+  $('#stuSem').value = String(sem); $('#stuBranch').value = branch; paintStudents();
+  toast(`${added} added, ${updated} updated in ${branch}, Semester ${sem}`);
 }
 function addSubject(){
-  const name = $('#subName').value.trim(), sem = +$('#subSem').value;
+  const name = $('#subName').value.trim(), sem = +$('#subSem').value, branch = $('#subBranch').value;
+  if (!branch) return toast('Add a branch first');
   if (!name) return toast('Enter a subject name');
-  if (S.subjects.some(x => x.sem === sem && x.name.toLowerCase() === name.toLowerCase())) return toast('That subject already exists in this semester');
-  S.subjects.push({id:'s' + uid(), name, sem}); persist();
+  if (S.subjects.some(x => x.branch === branch && x.sem === sem && x.name.toLowerCase() === name.toLowerCase())) return toast('That subject already exists in this semester');
+  S.subjects.push({id:'s' + uid(), name, sem, branch}); persist();
   $('#subName').value = ''; paintSubjects(); toast('Subject added');
 }
 function addOne(){
-  const roll = $('#oneRoll').value.trim(), name = $('#oneName').value.trim(), sem = +$('#oneSem').value;
+  const roll = $('#oneRoll').value.trim(), name = $('#oneName').value.trim(), sem = +$('#oneSem').value, branch = $('#oneBranch').value;
+  if (!branch) return toast('Add a branch first');
   if (!roll || !name) return toast('Enter roll number and name');
-  if (S.students.some(s => s.sem === sem && s.roll.toLowerCase() === roll.toLowerCase())) return toast('That roll number is already in this semester');
-  S.students.push({id:'t' + uid(), roll, name, sem, cat:$('#oneCat').value.trim()}); persist();
-  $('#oneRoll').value = ''; $('#oneName').value = ''; $('#oneCat').value = ''; ui.stuSem = String(sem); $('#stuSem').value = String(sem); paintStudents(); toast('Student added');
+  if (S.students.some(s => s.sem === sem && s.branch === branch && s.roll.toLowerCase() === roll.toLowerCase())) return toast('That roll number is already in this semester');
+  S.students.push({id:'t' + uid(), roll, name, sem, branch, cat:$('#oneCat').value.trim()}); persist();
+  $('#oneRoll').value = ''; $('#oneName').value = ''; $('#oneCat').value = ''; ui.stuSem = String(sem); ui.stuBranch = branch; $('#stuSem').value = String(sem); $('#stuBranch').value = branch; paintStudents(); toast('Student added');
+}
+function addBranch(){
+  const name = $('#brName').value.trim();
+  if (!name) return toast('Enter a branch name');
+  if (S.branches.some(b => b.toLowerCase() === name.toLowerCase())) return toast('That branch already exists');
+  S.branches.push(name); ui.stuBranch = name; persist(); renderImport(); toast('Branch added');
+}
+function paintBranches(){
+  $('#brList').innerHTML = S.branches.length ? S.branches.map(b => `<div class="item"><div>${esc(b)}</div><button class="btn sm danger" data-delbr="${esc(b)}">Delete</button></div>`).join('') : '<p class="hint">No branches yet. Add one to start.</p>';
 }
 function paintSubjects(){
-  const list = [...S.subjects].sort((a,b) => a.sem - b.sem || a.name.localeCompare(b.name));
-  $('#subList').innerHTML = list.length ? list.map(x => `<div class="item"><div>${esc(x.name)}<small>Semester ${x.sem}</small></div><button class="btn sm danger" data-del="${x.id}">Delete</button></div>`).join('') : '<p class="hint">No subjects yet.</p>';
+  const list = [...S.subjects].sort((a,b) => (a.branch || '').localeCompare(b.branch || '') || a.sem - b.sem || a.name.localeCompare(b.name));
+  $('#subList').innerHTML = list.length ? list.map(x => `<div class="item"><div>${esc(x.name)}<small>${esc(x.branch || '')} &middot; Semester ${x.sem}</small></div><button class="btn sm danger" data-del="${x.id}">Delete</button></div>`).join('') : '<p class="hint">No subjects yet.</p>';
 }
 function paintStudents(){
   const sem = +ui.stuSem;
-  const list = S.students.filter(s => s.sem === sem).sort((a,b) => a.roll.localeCompare(b.roll, undefined, {numeric:true}));
+  const list = S.students.filter(s => s.sem === sem && s.branch === ui.stuBranch).sort((a,b) => a.roll.localeCompare(b.roll, undefined, {numeric:true}));
   $('#stuList').innerHTML = list.length
     ? `<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px"><span class="badge ok">${list.length} students</span><button class="btn sm danger" data-clear="${sem}">Remove all</button></div>` +
       list.map(s => `<div class="item"><div><b style="font-weight:500">${esc(s.name)}</b><small>${esc(s.roll)}${s.cat ? ' &middot; ' + esc(s.cat) : ''}</small></div><button class="btn sm danger" data-del="${s.id}">Remove</button></div>`).join('')
-    : `<p class="hint">No students in Semester ${sem}. Import an Excel file above.</p>`;
+    : `<p class="hint">No students in ${esc(ui.stuBranch)}, Semester ${sem}. Import an Excel file above.</p>`;
 }
 
 /* ---- Window 3: Dashboard ---- */
-function computeStats(sem, subId){
-  const students = S.students.filter(s => s.sem === sem);
-  const subs = S.subjects.filter(x => x.sem === sem && (!subId || x.id === subId));
+function computeStats(branch, sem, subId){
+  const students = S.students.filter(s => s.sem === sem && s.branch === branch);
+  const subs = S.subjects.filter(x => x.branch === branch && x.sem === sem && (!subId || x.id === subId));
   const ids = new Set(subs.map(x => x.id));
   const keys = Object.keys(S.records).filter(k => ids.has(k.split('|')[1]));
   let P = 0, T = 0;
@@ -490,19 +600,22 @@ function computeStats(sem, subId){
 }
 function renderDashboard(){
   const v = $('#view');
-  const sems = [...new Set(S.subjects.map(x => x.sem).concat(S.students.map(x => x.sem)))].sort((a,b) => a - b);
+  const brs = S.branches.filter(b => S.subjects.some(x => x.branch === b) || S.students.some(x => x.branch === b));
+  if (!brs.includes(ui.dashBranch)) ui.dashBranch = brs[0] || '';
+  const br = ui.dashBranch;
+  const sems = [...new Set(S.subjects.filter(x => x.branch === br).map(x => x.sem).concat(S.students.filter(x => x.branch === br).map(x => x.sem)))].sort((a,b) => a - b);
   if (!sems.length){ v.innerHTML = '<h1 class="page-title">Dashboard</h1><p class="page-sub">Attendance percentage by student and subject.</p><div class="card empty">Nothing to show yet. Import students and mark attendance first.</div>'; return; }
   if (!sems.includes(+ui.dashSem)) ui.dashSem = String(sems[0]);
   const sem = +ui.dashSem;
-  const subs = S.subjects.filter(x => x.sem === sem);
+  const subs = S.subjects.filter(x => x.branch === br && x.sem === sem);
   if (ui.dashSub && !subs.some(x => x.id === ui.dashSub)) ui.dashSub = '';
-  const st = computeStats(sem, ui.dashSub);
+  const st = computeStats(br, sem, ui.dashSub);
   const ov = st.overall, low = st.rows.filter(r => r.pct !== null && r.pct < 75).length;
   const C = 2 * Math.PI * 52;
   const sorted = [...st.rows].sort((a,b) => (a.pct ?? 101) - (b.pct ?? 101));
-  const bySub = st.subs.map(x => ({x, st: computeStats(sem, x.id)}));
+  const bySub = st.subs.map(x => ({x, st: computeStats(br, sem, x.id)}));
   v.innerHTML = `<h1 class="page-title">Dashboard</h1><p class="page-sub">Attendance percentage. The line on each bar marks 75%.</p>
-    <div class="card"><div class="row">
+    <div class="card"><label class="f" style="margin-bottom:10px">Branch<select id="dBranch">${brs.map(b => `<option value="${esc(b)}"${b===br?' selected':''}>${esc(b)}</option>`).join('')}</select></label><div class="row">
       <label class="f">Semester<select id="dSem">${sems.map(n => `<option value="${n}"${n===sem?' selected':''}>Semester ${n}</option>`).join('')}</select></label>
       <label class="f">Subject<select id="dSub"><option value="">All subjects</option>${subs.map(x => `<option value="${x.id}"${x.id===ui.dashSub?' selected':''}>${esc(x.name)}</option>`).join('')}</select></label></div></div>
     <div class="card"><div class="ringwrap">
@@ -520,6 +633,7 @@ function renderDashboard(){
       sorted.map(({s,p,t,pct}) => `<div class="prow"><div class="h"><b>${esc(s.name)} <small>${esc(s.roll)}</small></b><em>${pct === null ? '--' : pct.toFixed(1) + '%'}</em></div>
         <div class="bar"><i class="${pct===null?'':pctClass(pct)}" style="width:${pct ?? 0}%"></i></div>
         <div style="display:flex;justify-content:space-between;align-items:center;margin-top:5px"><small>${p} of ${t} classes attended</small>${pct === null ? '' : pctBadge(pct)}</div></div>`).join('')}</div>`;
+  $('#dBranch').onchange = e => { ui.dashBranch = e.target.value; ui.dashSem = ''; ui.dashSub = ''; renderDashboard(); };
   $('#dSem').onchange = e => { ui.dashSem = e.target.value; ui.dashSub = ''; renderDashboard(); };
   $('#dSub').onchange = e => { ui.dashSub = e.target.value; renderDashboard(); };
 }
@@ -541,13 +655,14 @@ const SESS_DEFAULT = {teacher: DEV.name, branch: 'Mechanical Engineering', sessi
 const NCOLS = 15;
 
 function reportData(sem, subId){
-  const students = S.students.filter(s => s.sem === sem).sort((a,b) => a.roll.localeCompare(b.roll, undefined, {numeric:true}));
-  const dates = Object.keys(S.records).filter(k => k.endsWith('|' + subId)).map(k => k.split('|')[0]).sort();
-  return {students, dates};
+  const sb = S.subjects.find(x => x.id === subId);
+  const students = S.students.filter(s => s.sem === sem && (!sb || s.branch === sb.branch)).sort((a,b) => a.roll.localeCompare(b.roll, undefined, {numeric:true}));
+  const classes = Object.keys(S.records).filter(k => parseKey(k).subId === subId).map(k => ({k, ...parseKey(k)})).sort((a, b) => a.date.localeCompare(b.date) || a.time.localeCompare(b.time));
+  return {students, classes};
 }
 
 function buildReport(o){
-  const rd = reportData(o.sem, o.subId), students = rd.students, dates = o.filled ? rd.dates : [];
+  const rd = reportData(o.sem, o.subId), students = rd.students, dates = o.filled ? rd.classes : [];
   const xSl = PM, xName = xSl + 34, xRoll = xName + 146, xCat = xRoll + 100, xD0 = xCat + 44, xEnd = PW - PM;
   const dw = (xEnd - xD0) / NCOLS;
   const top = 100, hh = 18, bodyTop = top + hh * 2, rowH = 21;
@@ -589,7 +704,8 @@ function buildReport(o){
     T('F2', 7.5, xCat + 3, top + 12.5, 'DATE:'); T('F2', 7.5, xCat + 3, top + hh + 12.5, 'TIME:');
     for (let i = 0; i < NCOLS; i++){
       const d = dates[dc * NCOLS + i]; if (!d) continue;
-      const p = d.split('-'); T('F3', 6.5, xD0 + (i + .5) * dw, top + 12, p[2] + '/' + p[1], 'c');
+      const p = d.date.split('-'); T('F3', 6.5, xD0 + (i + .5) * dw, top + 12, p[2] + '/' + p[1], 'c');
+      if (d.time) T('F3', 5.5, xD0 + (i + .5) * dw, top + hh + 11.5, fmtT(d.time).replace(' ', ''), 'c');
     }
 
     /* Student rows */
@@ -610,7 +726,7 @@ function buildReport(o){
       if (s.cat) T('F3', 8, xCat + 3, mid + 3, s.cat.toUpperCase());
       for (let i = 0; i < NCOLS; i++){
         const d = dates[dc * NCOLS + i]; if (!d) continue;
-        const m = (S.records[d + '|' + o.subId] || {})[s.id];
+        const m = (S.records[d.k] || {})[s.id];
         if (m) T(m === 'A' ? 'F4' : 'F3', 9, xD0 + (i + .5) * dw, mid + 3.2, m, 'c');
       }
     });
@@ -679,12 +795,14 @@ function renderReport(){
   if (!sems.includes(+ui.repSem)) ui.repSem = String(sems[0]);
   const subs = S.subjects.filter(x => x.sem === +ui.repSem);
   if (!subs.some(x => x.id === ui.repSub)) ui.repSub = subs[0].id;
+  const curSub = subs.find(x => x.id === ui.repSub);
+  if (ui.repSynced !== curSub.id){ ui.repSynced = curSub.id; if (curSub.branch) S.report.branch = curSub.branch; persist(); }
   const R = S.report;
   v.innerHTML = `<h1 class="page-title">Report</h1><p class="page-sub">Attendance sheet in the college format. Preview it, then save the PDF.</p>
     <div class="card"><h2>Sheet</h2>
       <div class="row">
         <label class="f">Semester<select id="rSem">${sems.map(n => `<option value="${n}"${n === +ui.repSem ? ' selected' : ''}>Semester ${n}</option>`).join('')}</select></label>
-        <label class="f">Subject<select id="rSub">${subs.map(x => `<option value="${x.id}"${x.id === ui.repSub ? ' selected' : ''}>${esc(x.name)}</option>`).join('')}</select></label>
+        <label class="f">Subject<select id="rSub">${subs.map(x => `<option value="${x.id}"${x.id === ui.repSub ? ' selected' : ''}>${esc(x.name)}${S.branches.length > 1 ? ' - ' + esc(x.branch || '') : ''}</option>`).join('')}</select></label>
       </div>
       <label class="f" style="margin-top:10px">Date columns<select id="rFill"><option value="saved"${ui.repFill !== 'blank' ? ' selected' : ''}>Fill with saved attendance (P / A)</option><option value="blank"${ui.repFill === 'blank' ? ' selected' : ''}>Leave blank to fill by hand</option></select></label>
       <div id="rInfo" style="margin-top:10px"></div>
@@ -697,16 +815,17 @@ function renderReport(){
       </div>
       <p class="hint">Saved on this device and reused for every report.</p>
     </div>
-    <div class="savebar"><div class="row" style="flex-wrap:nowrap"><button class="btn" id="rPrev">Preview</button><button class="btn primary" id="rSave">Download PDF</button></div></div>`;
+    <div class="savebar"><div class="row rbtns" style="flex-wrap:nowrap"><button class="btn" id="rPrev">Preview</button><button class="btn" id="rPrint">Print</button><button class="btn primary" id="rSave">Download PDF</button></div></div>`;
   const info = () => {
-    const o = reportOpts(), b = buildReport(o), n = reportData(o.sem, o.subId).dates.length;
-    $('#rInfo').innerHTML = `<span class="badge ok">${b.students} students</span> <span class="badge ok">${n} class dates saved</span> <span class="badge ok">${b.pages.length} page${b.pages.length > 1 ? 's' : ''}</span>`;
+    const o = reportOpts(), b = buildReport(o), n = reportData(o.sem, o.subId).classes.length;
+    $('#rInfo').innerHTML = `<span class="badge ok">${b.students} students</span> <span class="badge ok">${n} class${n === 1 ? '' : 'es'} saved</span> <span class="badge ok">${b.pages.length} page${b.pages.length > 1 ? 's' : ''}</span>`;
   };
   $('#rSem').onchange = e => { ui.repSem = e.target.value; renderReport(); };
-  $('#rSub').onchange = e => { ui.repSub = e.target.value; info(); };
+  $('#rSub').onchange = e => { ui.repSub = e.target.value; renderReport(); };
   $('#rFill').onchange = e => { ui.repFill = e.target.value; info(); };
   [['rTeacher','teacher'], ['rBranch','branch'], ['rSession','session']].forEach(([id, k]) => $('#' + id).oninput = e => { S.report[k] = e.target.value; persist(); });
   $('#rPrev').onclick = openPreview;
+  $('#rPrint').onclick = printPDF;
   $('#rSave').onclick = () => savePDF();
   info();
 }
@@ -734,14 +853,29 @@ $('#pvSave').onclick = () => savePDF(pv.pages, pv.name);
 window.addEventListener('keydown', e => { if (e.key === 'Escape' && !$('#pv').hidden) closePreview(); });
 window.addEventListener('resize', () => { if (!$('#pv').hidden) paintPreview(); });
 
+const toB64 = bytes => { let bin = ''; for (let i = 0; i < bytes.length; i += 8192) bin += String.fromCharCode.apply(null, bytes.subarray(i, i + 8192)); return btoa(bin); };
+async function printPDF(){
+  try {
+    const o = reportOpts(), pages = buildReport(o).pages, name = reportFileName(o), bytes = makePDF(pages), PP = plug('AppTools');
+    if (isNative()){
+      if (PP) await PP.print({name: name.replace(/\.pdf$/, ''), data: toB64(bytes)});
+      else { toast('Choose Print from the share menu'); await savePDF(pages, name); }
+      return;
+    }
+    const url = URL.createObjectURL(new Blob([bytes], {type: 'application/pdf'}));
+    const f = document.createElement('iframe'); f.style.cssText = 'position:fixed;right:0;bottom:0;width:1px;height:1px;border:0;opacity:0';
+    f.onload = () => setTimeout(() => { try { f.contentWindow.focus(); f.contentWindow.print(); } catch(e){ window.open(url, '_blank'); } }, 300);
+    f.src = url; document.body.appendChild(f);
+    setTimeout(() => { f.remove(); URL.revokeObjectURL(url); }, 120000);
+  } catch(err){ toast('Could not print'); }
+}
 async function savePDF(pages, name){
   try {
     if (!pages){ const o = reportOpts(); pages = buildReport(o).pages; name = reportFileName(o); }
-    const bytes = makePDF(pages), cap = window.Capacitor, P = cap && cap.Plugins;
-    if (cap && cap.isNativePlatform && cap.isNativePlatform() && P && P.Filesystem && P.Share){
-      let bin = ''; for (let i = 0; i < bytes.length; i += 8192) bin += String.fromCharCode.apply(null, bytes.subarray(i, i + 8192));
-      const r = await P.Filesystem.writeFile({path: name, data: btoa(bin), directory: 'CACHE'});
-      await P.Share.share({title: name, url: r.uri, dialogTitle: 'Save or share the attendance sheet'});
+    const bytes = makePDF(pages), FS = plug('Filesystem'), SH = plug('Share');
+    if (FS && SH){
+      const r = await FS.writeFile({path: name, data: toB64(bytes), directory: 'CACHE'});
+      await SH.share({title: name, url: r.uri, dialogTitle: 'Save or share the attendance sheet'});
     } else {
       const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([bytes], {type: 'application/pdf'})); a.download = name;
       document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(a.href), 4000);
@@ -750,19 +884,270 @@ async function savePDF(pages, name){
   } catch(err){ if (!/cancel|dismiss/i.test(String(err && err.message || err))) toast('Could not save the PDF'); }
 }
 
+/* ---- Google Drive backup: one private file in this app's hidden app-data folder of the user's own Drive ---- */
+const G = {
+  auth: 'https://accounts.google.com/o/oauth2/v2/auth',
+  token: 'https://oauth2.googleapis.com/token',
+  revoke: 'https://oauth2.googleapis.com/revoke',
+  redirect: 'com.attendly.app:/oauth2redirect',
+  scope: 'https://www.googleapis.com/auth/drive.appdata openid email',
+  file: 'attendly-backup.json'
+};
+const DKEY = 'attendly.drive', CKEY = 'attendly.gcid', OKEY = 'attendly.oauth';
+const lsGet = k => { try { return JSON.parse(localStorage.getItem(k)); } catch(e){ return null; } };
+const lsSet = (k, v) => { try { if (v === null) localStorage.removeItem(k); else localStorage.setItem(k, JSON.stringify(v)); } catch(e){} };
+const driveInfo = () => lsGet(DKEY);
+const clientId = () => String(DEV.googleClientId || lsGet(CKEY) || '').trim();
+const form = o => Object.keys(o).map(k => encodeURIComponent(k) + '=' + encodeURIComponent(o[k])).join('&');
+const b64u = buf => btoa(String.fromCharCode.apply(null, new Uint8Array(buf))).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+const rnd = n => { const a = new Uint8Array(n); crypto.getRandomValues(a); return b64u(a); };
+const fmtWhen = iso => { try { return new Date(iso).toLocaleString([], {day: 'numeric', month: 'short', hour: 'numeric', minute: '2-digit'}); } catch(e){ return ''; } };
+const jwtEmail = t => { try { const p = t.split('.')[1].replace(/-/g, '+').replace(/_/g, '/'); return JSON.parse(decodeURIComponent(escape(atob(p)))).email || ''; } catch(e){ return ''; } };
+
+/* HTTP goes through the phone (no browser CORS limits); a normal fetch is the fallback */
+async function gfetch(url, o = {}){
+  let method = o.method || 'GET'; const headers = Object.assign({}, o.headers);
+  if (method === 'PATCH'){ method = 'POST'; headers['X-HTTP-Method-Override'] = 'PATCH'; }
+  const T = plug('AppTools');
+  if (T){ const r = await T.http({url, method, headers, body: o.body || ''}); return {status: r.status, text: r.text}; }
+  const r = await fetch(url, {method, headers, body: o.body}); return {status: r.status, text: await r.text()};
+}
+const jparse = t => { try { return JSON.parse(t); } catch(e){ return {}; } };
+function driveMsg(text, err){ drv.msg = text || ''; drv.err = !!err; paintDrive(); }
+
+async function driveConnect(){
+  const id = clientId();
+  if (!id) return toast('Enter the Google client ID first');
+  if (!isNative()) return toast('Connect works in the installed Android app');
+  const T = plug('AppTools'); if (!T) return toast('Google sign-in is not available in this build');
+  try {
+    const verifier = rnd(48), state = rnd(16);
+    const challenge = b64u(await crypto.subtle.digest('SHA-256', new TextEncoder().encode(verifier)));
+    lsSet(CKEY, id); lsSet(OKEY, {verifier, state, id});
+    await T.openUrl({url: G.auth + '?' + form({client_id: id, redirect_uri: G.redirect, response_type: 'code', scope: G.scope, code_challenge: challenge, code_challenge_method: 'S256', state, access_type: 'offline', prompt: 'consent select_account'})});
+  } catch(e){ driveMsg('Could not open Google sign-in', true); }
+}
+async function onOAuthUrl(url){
+  const pend = lsGet(OKEY); if (!url || !pend) return; lsSet(OKEY, null);
+  const qs = new URLSearchParams(String(url).split('?')[1] || '');
+  if (qs.get('error')) return driveMsg('Sign-in was cancelled', true);
+  if (qs.get('state') !== pend.state || !qs.get('code')) return driveMsg('Sign-in failed. Please try again.', true);
+  driveMsg('Connecting...');
+  try {
+    const r = await gfetch(G.token, {method: 'POST', headers: {'Content-Type': 'application/x-www-form-urlencoded'}, body: form({code: qs.get('code'), client_id: pend.id, code_verifier: pend.verifier, redirect_uri: G.redirect, grant_type: 'authorization_code'})});
+    const j = jparse(r.text);
+    if (r.status !== 200 || !j.refresh_token) return driveMsg('Google did not accept the sign-in' + (j.error_description ? ': ' + j.error_description : '') + '.', true);
+    drv.at = j.access_token; drv.exp = Date.now() + (j.expires_in || 3600) * 1000;
+    lsSet(DKEY, {refresh: j.refresh_token, email: jwtEmail(j.id_token), auto: false, last: ''});
+    const f = await driveFind(drv.at);
+    if (f){ await driveLoad(drv.at, f); driveMsg(drv.found ? 'Connected. A backup was found in your Drive.' : 'Connected, but the backup in your Drive could not be read.', !drv.found); }
+    else { const d = driveInfo(); d.auto = true; lsSet(DKEY, d); driveMsg('Connected.'); driveAuto(); }
+  } catch(e){ driveMsg('Could not connect: ' + (e.message || e), true); }
+}
+async function driveToken(){
+  const d = driveInfo(); if (!d || !d.refresh) throw new Error('Not connected');
+  if (drv.at && Date.now() < drv.exp - 60000) return drv.at;
+  const r = await gfetch(G.token, {method: 'POST', headers: {'Content-Type': 'application/x-www-form-urlencoded'}, body: form({client_id: clientId(), refresh_token: d.refresh, grant_type: 'refresh_token'})});
+  const j = jparse(r.text);
+  if (r.status !== 200 || !j.access_token){
+    if (j.error === 'invalid_grant'){ lsSet(DKEY, null); drv.at = ''; throw new Error('Google sign-in expired. Please connect again.'); }
+    throw new Error('Could not sign in to Google (' + r.status + ')');
+  }
+  drv.at = j.access_token; drv.exp = Date.now() + (j.expires_in || 3600) * 1000; return drv.at;
+}
+const gauth = tok => ({Authorization: 'Bearer ' + tok});
+async function driveFind(tok){
+  const r = await gfetch('https://www.googleapis.com/drive/v3/files?spaces=appDataFolder&pageSize=1&orderBy=' + encodeURIComponent('modifiedTime desc') + '&fields=' + encodeURIComponent('files(id,modifiedTime)') + '&q=' + encodeURIComponent("name='" + G.file + "'"), {headers: gauth(tok)});
+  if (r.status !== 200) throw new Error('Google Drive said ' + r.status);
+  const f = (jparse(r.text).files || [])[0]; return f || null;
+}
+async function driveLoad(tok, f){
+  drv.found = null;
+  const r = await gfetch('https://www.googleapis.com/drive/v3/files/' + f.id + '?alt=media', {headers: gauth(tok)});
+  const o = jparse(r.text);
+  if (r.status === 200 && o && o.data && Array.isArray(o.data.subjects) && Array.isArray(o.data.students) && o.data.records)
+    drv.found = {when: o.savedAt || f.modifiedTime, students: o.data.students.length, classes: Object.keys(o.data.records).length, data: o.data};
+}
+async function driveBackup(silent){
+  if (drv.busy) return; drv.busy = true;
+  try {
+    if (!silent) driveMsg('Backing up...');
+    const tok = await driveToken(), body = JSON.stringify({app: 'attendly', v: 1, savedAt: new Date().toISOString(), data: S}), f = await driveFind(tok);
+    let r;
+    if (f) r = await gfetch('https://www.googleapis.com/upload/drive/v3/files/' + f.id + '?uploadType=media', {method: 'PATCH', headers: Object.assign({'Content-Type': 'application/json'}, gauth(tok)), body});
+    else {
+      const b = 'attendly' + Date.now(), meta = JSON.stringify({name: G.file, parents: ['appDataFolder']});
+      r = await gfetch('https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart', {method: 'POST', headers: Object.assign({'Content-Type': 'multipart/related; boundary=' + b}, gauth(tok)), body: `--${b}\r\nContent-Type: application/json; charset=UTF-8\r\n\r\n${meta}\r\n--${b}\r\nContent-Type: application/json\r\n\r\n${body}\r\n--${b}--`});
+    }
+    if (r.status < 200 || r.status >= 300) throw new Error('Google Drive said ' + r.status);
+    const d = driveInfo(); if (d){ d.last = new Date().toISOString(); lsSet(DKEY, d); }
+    drv.msg = silent ? '' : 'Backup saved to your Google Drive.'; drv.err = false; if (!silent) toast('Backup saved');
+  } catch(e){ drv.msg = 'Backup failed: ' + (e.message || e); drv.err = true; }
+  finally { drv.busy = false; paintDrive(); }
+}
+function driveAuto(){
+  const d = driveInfo();
+  if (!d || !d.auto || S.sample || drv.found || !(S.students.length || Object.keys(S.records).length)) return;
+  clearTimeout(drv.t); drv.t = setTimeout(() => driveBackup(true), 6000);
+}
+async function driveCheck(){
+  if (drv.busy) return; drv.busy = true; driveMsg('Looking for a backup...');
+  try {
+    const tok = await driveToken(), f = await driveFind(tok);
+    if (!f){ drv.found = null; drv.busy = false; return driveMsg('No backup found in your Google Drive yet.'); }
+    await driveLoad(tok, f);
+    drv.msg = drv.found ? '' : 'The backup in your Drive could not be read.'; drv.err = !drv.found;
+  } catch(e){ drv.msg = 'Could not check Drive: ' + (e.message || e); drv.err = true; }
+  finally { drv.busy = false; paintDrive(); }
+}
+function driveRestore(){
+  if (!drv.found) return;
+  clearTimeout(drv.t);
+  S = migrate(JSON.parse(JSON.stringify(drv.found.data))); persistRaw();
+  Object.assign(ui, {subjectId: '', branch: '', cls: null, time: '', draft: null, dirty: false, stuBranch: '', dashBranch: '', dashSem: '', dashSub: '', repSynced: '', repSub: '', repSem: '', importRows: null});
+  drv.found = null; const d = driveInfo(); if (d){ d.auto = true; lsSet(DKEY, d); }
+  driveMsg('Restored from your Google Drive backup.'); toast('Data restored');
+}
+const persistRaw = () => { try { localStorage.setItem(KEY, JSON.stringify(S)); } catch(e){} };
+async function driveOff(){
+  const d = driveInfo(); clearTimeout(drv.t);
+  if (d && d.refresh){ try { await gfetch(G.revoke, {method: 'POST', headers: {'Content-Type': 'application/x-www-form-urlencoded'}, body: form({token: d.refresh})}); } catch(e){} }
+  lsSet(DKEY, null); drv.at = ''; drv.found = null; driveMsg('Disconnected. Your backup stays in your Google Drive.');
+}
+function paintDrive(){
+  const el = $('#drvBox'); if (!el) return;
+  const d = driveInfo(); let x = '';
+  if (!d){
+    if (!DEV.googleClientId) x += `<label class="f">Google client ID<input type="text" id="gcid" value="${esc(lsGet(CKEY) || '')}" placeholder="xxxx.apps.googleusercontent.com" autocomplete="off" autocapitalize="off" spellcheck="false"></label>`;
+    x += `<button class="btn primary" id="drvConnect" style="margin-top:10px;width:100%">Connect Google Drive</button>
+      <p class="hint">Sign in with Google to back up your data to your own Drive. Restore it after a crash or on a new phone.</p>`;
+  } else {
+    x += `<div class="kv"><span>Account</span><b>${esc(d.email || 'Connected')}</b></div>
+      <div class="kv"><span>Last backup</span><b>${d.last ? esc(fmtWhen(d.last)) : 'None yet'}</b></div>
+      <div class="row" style="margin-top:10px"><button class="btn primary" id="drvBackup"${drv.busy ? ' disabled' : ''}>Back up now</button><button class="btn" id="drvRestore"${drv.busy ? ' disabled' : ''}>Restore</button></div>
+      <label style="display:flex;gap:10px;align-items:center;margin-top:12px;font-size:14px"><input type="checkbox" id="drvAuto"${d.auto ? ' checked' : ''} style="width:20px;height:20px"> Back up automatically after changes</label>
+      <button class="btn sm" id="drvOff" style="margin-top:10px">Disconnect</button>`;
+  }
+  if (drv.found) x += `<div style="margin-top:12px;padding:12px;border-radius:12px;background:var(--surface2);border:1px solid var(--line)">
+      <b>Backup found</b><div style="font-size:13px;color:var(--muted);margin:4px 0 10px">Saved ${esc(fmtWhen(drv.found.when))}: ${drv.found.students} students, ${drv.found.classes} classes. Restoring replaces the data on this phone.</div>
+      <div class="row"><button class="btn primary" id="drvDo">Restore this backup</button><button class="btn" id="drvNot">Not now</button></div></div>`;
+  if (drv.msg) x += `<p class="hint"${drv.err ? ' style="color:var(--bad)"' : ''}>${esc(drv.msg)}</p>`;
+  el.innerHTML = x;
+  const on = (id, fn) => { const b = $('#' + id); if (b) b.onclick = fn; };
+  on('drvConnect', () => { const g = $('#gcid'); if (g) lsSet(CKEY, g.value.trim()); driveConnect(); });
+  on('drvBackup', () => driveBackup(false)); on('drvRestore', driveCheck); on('drvDo', driveRestore);
+  on('drvNot', () => { drv.found = null; driveMsg('Nothing was changed. Automatic backup stays off until you tap Back up now or switch it on.'); });
+  on('drvOff', driveOff);
+  const a = $('#drvAuto'); if (a) a.onchange = e => { const i = driveInfo(); if (i){ i.auto = e.target.checked; lsSet(DKEY, i); if (i.auto) driveAuto(); } };
+}
+setTimeout(async function initDrive(){
+  const T = plug('AppTools'); if (!T) return;
+  try { T.addListener('oauthRedirect', e => onOAuthUrl(e && e.url)); const r = await T.takePending(); if (r && r.url) onOAuthUrl(r.url); } catch(e){}
+}, 0);
+
 /* ---- Window 5: Developer ---- */
+async function shareApp(zip){
+  if (!isNative()) return toast('Open the installed Android app to share the APK');
+  const T = plug('AppTools'), SH = plug('Share');
+  if (!T || !SH) return toast('Sharing is not available in this build');
+  try {
+    const r = await T.prepareApk({zip: !!zip});
+    await SH.share({title: 'Attendly app', text: zip ? 'Attendly app (unzip it, then install the APK)' : 'Attendly app', url: r.uri, dialogTitle: 'Share Attendly app'});
+  } catch(e){ if (!/cancel|dismiss/i.test(String((e && e.message) || e))) toast('Could not share the app'); }
+}
 function renderDeveloper(){
   const ini = DEV.name.split(/\s+/).map(w => w[0]).join('').slice(0,2).toUpperCase();
   const hasContact = DEV.email || DEV.github;
   $('#view').innerHTML = `<h1 class="page-title">Developer</h1><p class="page-sub">Developer details.</p>
     <div class="card"><div class="dev"><div class="avatar" aria-hidden="true">${esc(ini)}</div><div style="min-width:0"><h2 style="font-size:19px;margin:0">${esc(DEV.name)}</h2><div style="color:var(--muted)">${esc(DEV.role)}</div><div style="color:var(--muted);font-size:13px">${esc(DEV.dept)}</div></div></div></div>
+    <div class="card"><h2>Security</h2><button class="btn" id="chgPin" style="width:100%">Change PIN</button></div>
+    <div class="card"><h2>Google Drive</h2><div id="drvBox"></div></div>
+    <div class="card"><h2>Share app</h2>
+      <div class="row"><button class="btn" id="shApk">Share APK</button><button class="btn" id="shZip">Share as ZIP</button></div>
+      <p class="hint">Send the installed app to a colleague. WhatsApp blocks .apk files, so use ZIP and ask them to unzip it before installing.</p></div>
     ${hasContact ? `<div class="card"><h2>Contact</h2>
       ${DEV.email ? `<div class="kv"><span>Email</span><b>${esc(DEV.email)}</b></div>` : ''}
       ${DEV.github ? `<div class="kv"><span>GitHub</span><b><a href="https://github.com/${encodeURIComponent(DEV.github)}" target="_blank" rel="noopener">github.com/${esc(DEV.github)}</a></b></div>` : ''}
       ${DEV.email ? '<button class="btn sm" id="copyMail" style="margin-top:8px">Copy email</button>' : ''}</div>` : ''}`;
+  $('#chgPin').onclick = changePin;
+  paintDrive();
+  $('#shApk').onclick = () => shareApp(false);
+  $('#shZip').onclick = () => shareApp(true);
   const cm = $('#copyMail');
   if (cm) cm.onclick = () => { (navigator.clipboard ? navigator.clipboard.writeText(DEV.email) : Promise.reject()).then(() => toast('Email copied'), () => toast('Press and hold the email to copy it')); };
 }
+
+/* ---- App lock: PIN, plus fingerprint / phone lock when the app runs on a phone ---- */
+const PIN_KEY = 'attendly.pin';
+const lk = {mode: 'enter', buf: '', first: '', hiddenAt: 0, busy: false, change: false};
+const isNative = () => { const c = window.Capacitor; return !!(c && c.isNativePlatform && c.isNativePlatform()); };
+const plug = n => { const c = window.Capacitor; if (!isNative()) return null; try { return (c.Plugins && c.Plugins[n]) || ((c.PluginHeaders || []).some(x => x.name === n) && c.registerPlugin ? c.registerPlugin(n) : null) || null; } catch(e){ return null; } };
+const bioPlugin = () => plug('BiometricAuth');
+const getPin = () => { try { return JSON.parse(localStorage.getItem(PIN_KEY)); } catch(e){ return null; } };
+async function hashPin(pin, salt){
+  const s = salt + ':' + pin;
+  if (window.crypto && crypto.subtle){ const d = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(s)); return Array.from(new Uint8Array(d)).map(b => b.toString(16).padStart(2, '0')).join(''); }
+  let x = 5381; for (let i = 0; i < s.length; i++) x = ((x * 33) ^ s.charCodeAt(i)) >>> 0; return 'f' + x;
+}
+function lkPaint(msg, err){
+  const T = {enter: lk.change ? ['Current PIN', 'Enter your current PIN'] : ['Enter PIN', 'Unlock Attendly'], set1: lk.change ? ['New PIN', 'Choose a new 4-digit PIN'] : ['Create a PIN', 'Choose a 4-digit PIN to protect the app'], set2: ['Confirm PIN', 'Enter the same PIN again']}[lk.mode];
+  $('#lkTitle').textContent = T[0];
+  const m = $('#lkMsg'); m.textContent = msg || T[1]; m.classList.toggle('err', !!err);
+  document.querySelectorAll('#lkDots i').forEach((d, i) => d.classList.toggle('on', i < lk.buf.length));
+  $('#lkBio').hidden = !(lk.mode === 'enter' && !lk.change && bioPlugin());
+  $('#lkCancel').hidden = !lk.change;
+  $('#lkGap').hidden = !$('#lkBio').hidden;
+  $('#lkForgot').hidden = !(lk.mode === 'enter' && !lk.change && bioPlugin());
+}
+function showLock(){
+  lk.change = false; lk.mode = getPin() ? 'enter' : 'set1'; lk.buf = ''; lk.first = '';
+  $('#lock').hidden = false; lkPaint();
+  if (lk.mode === 'enter') nativeUnlock(false);
+}
+function unlock(){ lk.change = false; lk.buf = ''; $('#lock').hidden = true; }
+function lkFail(msg){ const d = $('#lkDots'); d.classList.remove('shake'); void d.offsetWidth; d.classList.add('shake'); lk.buf = ''; lkPaint(msg, true); }
+async function lkKey(k){
+  if (lk.busy) return;
+  if (k === 'bio') return nativeUnlock(true);
+  if (k === 'del'){ lk.buf = lk.buf.slice(0, -1); return lkPaint(); }
+  if (lk.buf.length >= 4) return;
+  lk.buf += k; lkPaint();
+  if (lk.buf.length < 4) return;
+  lk.busy = true;
+  try {
+    const pin = lk.buf, saved = getPin();
+    if (lk.mode === 'enter'){
+      if (saved && await hashPin(pin, saved.salt) === saved.hash){ if (lk.change){ lk.mode = 'set1'; lk.buf = ''; lkPaint(); } else unlock(); } else lkFail('Wrong PIN, try again');
+    } else if (lk.mode === 'set1'){ lk.first = pin; lk.buf = ''; lk.mode = 'set2'; lkPaint(); }
+    else {
+      if (pin !== lk.first){ lk.mode = 'set1'; lk.first = ''; lkFail('PINs did not match, start again'); }
+      else {
+        const salt = Math.random().toString(36).slice(2) + Date.now().toString(36);
+        try { localStorage.setItem(PIN_KEY, JSON.stringify({salt, hash: await hashPin(pin, salt)})); } catch(e){}
+        const msg = lk.change ? 'PIN changed' : 'PIN saved';
+        unlock(); toast(msg);
+      }
+    }
+  } finally { lk.busy = false; }
+}
+async function nativeUnlock(manual, thenReset){
+  const B = bioPlugin(); if (!B) return false;
+  try {
+    await B.authenticate({reason: 'Unlock Attendly', cancelTitle: 'Use PIN', allowDeviceCredential: true, androidTitle: 'Unlock Attendly', androidSubtitle: 'Use fingerprint, face or your phone PIN'});
+    if (thenReset){ lk.mode = 'set1'; lk.buf = ''; lk.first = ''; lkPaint(); } else unlock();
+    return true;
+  } catch(e){ if (manual) lkPaint('Not unlocked. Use your PIN instead.', true); return false; }
+}
+$('#lkPad').addEventListener('click', e => { const b = e.target.closest('button[data-k]'); if (b) lkKey(b.dataset.k); });
+function changePin(){ if (!getPin()) return showLock(); lk.change = true; lk.mode = 'enter'; lk.buf = ''; lk.first = ''; $('#lock').hidden = false; lkPaint(); }
+$('#lkCancel').onclick = () => unlock();
+$('#lkForgot').onclick = () => nativeUnlock(true, true);
+window.addEventListener('keydown', e => { if ($('#lock').hidden) return; if (/^\d$/.test(e.key)) lkKey(e.key); else if (e.key === 'Backspace') lkKey('del'); });
+document.addEventListener('visibilitychange', () => {
+  if (document.hidden){ lk.hiddenAt = Date.now(); return; }
+  if (lk.hiddenAt && Date.now() - lk.hiddenAt > 60000 && getPin() && $('#lock').hidden) showLock();
+});
+showLock();
 
 if (!location.hash) history.replaceState(null, '', '#attendance');
 render();
