@@ -120,4 +120,167 @@ jobs:
                     c.setConnectTimeout(20000);
                     c.setReadTimeout(30000);
                     c.setRequestMethod(call.getString("method", "GET"));
-                    JS
+                    JSObject h = call.getObject("headers");
+                    if (h != null) {
+                      Iterator<String> it = h.keys();
+                      while (it.hasNext()) {
+                        String k = it.next();
+                        c.setRequestProperty(k, h.getString(k));
+                      }
+                    }
+                    String body = call.getString("body", "");
+                    if (body != null && body.length() > 0) {
+                      c.setDoOutput(true);
+                      OutputStream os = c.getOutputStream();
+                      os.write(body.getBytes("UTF-8"));
+                      os.close();
+                    }
+                    int code = c.getResponseCode();
+                    InputStream is = code >= 400 ? c.getErrorStream() : c.getInputStream();
+                    ByteArrayOutputStream bo = new ByteArrayOutputStream();
+                    if (is != null) {
+                      byte[] buf = new byte[8192];
+                      int n;
+                      while ((n = is.read(buf)) > 0) bo.write(buf, 0, n);
+                      is.close();
+                    }
+                    JSObject r = new JSObject();
+                    r.put("status", code);
+                    r.put("text", bo.toString("UTF-8"));
+                    call.resolve(r);
+                  } catch (Exception e) {
+                    call.reject(e.toString());
+                  } finally {
+                    if (c != null) c.disconnect();
+                  }
+                }
+              }).start();
+            }
+
+            @PluginMethod
+            public void prepareApk(PluginCall call) {
+              try {
+                boolean zip = Boolean.TRUE.equals(call.getBoolean("zip", false));
+                File src = new File(getContext().getApplicationInfo().sourceDir);
+                File out = new File(getContext().getCacheDir(), zip ? "Attendly.zip" : "Attendly.apk");
+                InputStream in = new FileInputStream(src);
+                if (zip) {
+                  ZipOutputStream z = new ZipOutputStream(new FileOutputStream(out));
+                  z.putNextEntry(new ZipEntry("Attendly.apk"));
+                  copy(in, z);
+                  z.closeEntry();
+                  z.close();
+                } else {
+                  OutputStream os = new FileOutputStream(out);
+                  copy(in, os);
+                  os.close();
+                }
+                in.close();
+                JSObject r = new JSObject();
+                r.put("uri", "file://" + out.getAbsolutePath());
+                call.resolve(r);
+              } catch (Exception e) {
+                call.reject(e.toString());
+              }
+            }
+
+            private static void copy(InputStream in, OutputStream out) throws java.io.IOException {
+              byte[] buf = new byte[65536];
+              int n;
+              while ((n = in.read(buf)) > 0) out.write(buf, 0, n);
+            }
+
+            @PluginMethod
+            public void print(final PluginCall call) {
+              final String data = call.getString("data");
+              final String name = call.getString("name", "Attendance");
+              if (data == null) { call.reject("No data"); return; }
+              final byte[] bytes = Base64.decode(data, Base64.DEFAULT);
+              getActivity().runOnUiThread(new Runnable() {
+                public void run() {
+                  try {
+                    PrintManager pm = (PrintManager) getActivity().getSystemService(Context.PRINT_SERVICE);
+                    PrintAttributes attrs = new PrintAttributes.Builder()
+                      .setMediaSize(PrintAttributes.MediaSize.ISO_A4.asLandscape()).build();
+                    pm.print(name, new PrintDocumentAdapter() {
+                      @Override
+                      public void onLayout(PrintAttributes oldA, PrintAttributes newA, CancellationSignal cancel, LayoutResultCallback cb, Bundle extras) {
+                        if (cancel.isCanceled()) { cb.onLayoutCancelled(); return; }
+                        PrintDocumentInfo info = new PrintDocumentInfo.Builder(name + ".pdf")
+                          .setContentType(PrintDocumentInfo.CONTENT_TYPE_DOCUMENT)
+                          .setPageCount(PrintDocumentInfo.PAGE_COUNT_UNKNOWN).build();
+                        cb.onLayoutFinished(info, true);
+                      }
+                      @Override
+                      public void onWrite(PageRange[] pages, ParcelFileDescriptor dest, CancellationSignal cancel, WriteResultCallback cb) {
+                        try {
+                          OutputStream out = new FileOutputStream(dest.getFileDescriptor());
+                          out.write(bytes);
+                          out.flush();
+                          cb.onWriteFinished(new PageRange[]{PageRange.ALL_PAGES});
+                        } catch (Exception ex) {
+                          cb.onWriteFailed(ex.toString());
+                        }
+                      }
+                    }, attrs);
+                    call.resolve();
+                  } catch (Exception ex) {
+                    call.reject(ex.toString());
+                  }
+                }
+              });
+            }
+          }
+          EOF
+          cat > $D/MainActivity.java <<'EOF'
+          package com.attendly.app;
+
+          import android.content.Intent;
+          import android.os.Bundle;
+          import com.getcapacitor.BridgeActivity;
+
+          public class MainActivity extends BridgeActivity {
+            @Override
+            public void onCreate(Bundle savedInstanceState) {
+              registerPlugin(AppToolsPlugin.class);
+              super.onCreate(savedInstanceState);
+              AppToolsPlugin.deliver(getIntent());
+            }
+
+            @Override
+            protected void onNewIntent(Intent intent) {
+              super.onNewIntent(intent);
+              AppToolsPlugin.deliver(intent);
+            }
+          }
+          EOF
+
+      - name: Allow Google sign-in to return to the app
+        continue-on-error: true
+        run: |
+          python3 - <<'EOF'
+          p = 'android/app/src/main/AndroidManifest.xml'
+          s = open(p).read()
+          f = '<intent-filter><action android:name="android.intent.action.VIEW" /><category android:name="android.intent.category.DEFAULT" /><category android:name="android.intent.category.BROWSABLE" /><data android:scheme="com.attendly.app" /></intent-filter>'
+          if 'android:scheme="com.attendly.app"' not in s:
+              s = s.replace('</activity>', f + '</activity>', 1)
+          open(p, 'w').write(s)
+          EOF
+
+      - name: Build debug APK
+        working-directory: android
+        run: |
+          chmod +x gradlew
+          ./gradlew assembleDebug --stacktrace --no-daemon || {
+            echo "Print and share support could not be built, building without it"
+            D=app/src/main/java/com/attendly/app
+            rm -f $D/AppToolsPlugin.java
+            cp $D/MainActivity.java.orig $D/MainActivity.java
+            ./gradlew assembleDebug --stacktrace --no-daemon
+          }
+
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: attendly-debug-apk
+          path: android/app/build/outputs/apk/debug/app-debug.apk
