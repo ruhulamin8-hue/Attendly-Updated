@@ -20,8 +20,6 @@ jobs:
           distribution: temurin
           java-version: 17
 
-      - uses: android-actions/setup-android@v3
-
       - name: Install dependencies
         run: npm install --no-audit --no-fund --legacy-peer-deps
 
@@ -34,14 +32,92 @@ jobs:
       - name: Sync web files into Android
         run: npx cap sync android
 
-      - name: Build debug APK
-        working-directory: android
+      - name: Add print and share support
         run: |
-          chmod +x gradlew
-          ./gradlew assembleDebug --stacktrace --no-daemon
+          D=android/app/src/main/java/com/attendly/app
+          mkdir -p $D
+          cp $D/MainActivity.java $D/MainActivity.java.orig
+          cat > $D/AppToolsPlugin.java <<'EOF'
+          package com.attendly.app;
 
-      - name: Upload APK
-        uses: actions/upload-artifact@v4
-        with:
-          name: attendly-debug-apk
-          path: android/app/build/outputs/apk/debug/app-debug.apk
+          import android.content.Context;
+          import android.content.Intent;
+          import android.net.Uri;
+          import android.os.Bundle;
+          import android.os.CancellationSignal;
+          import android.os.ParcelFileDescriptor;
+          import android.print.PageRange;
+          import android.print.PrintAttributes;
+          import android.print.PrintDocumentAdapter;
+          import android.print.PrintDocumentInfo;
+          import android.print.PrintManager;
+          import android.util.Base64;
+          import com.getcapacitor.JSObject;
+          import com.getcapacitor.Plugin;
+          import com.getcapacitor.PluginCall;
+          import com.getcapacitor.PluginMethod;
+          import com.getcapacitor.annotation.CapacitorPlugin;
+          import java.io.ByteArrayOutputStream;
+          import java.io.File;
+          import java.io.FileInputStream;
+          import java.io.FileOutputStream;
+          import java.io.InputStream;
+          import java.io.OutputStream;
+          import java.net.HttpURLConnection;
+          import java.net.URL;
+          import java.util.Iterator;
+          import java.util.zip.ZipEntry;
+          import java.util.zip.ZipOutputStream;
+
+          @CapacitorPlugin(name = "AppTools")
+          public class AppToolsPlugin extends Plugin {
+            static AppToolsPlugin inst;
+            static String pending;
+
+            @Override
+            public void load() { inst = this; }
+
+            /* Google sign-in comes back to the app as com.attendly.app:/oauth2redirect?code=... */
+            static void deliver(Intent it) {
+              if (it == null || it.getData() == null) return;
+              String u = it.getData().toString();
+              if (!u.startsWith("com.attendly.app:")) return;
+              pending = u;
+              if (inst != null) {
+                JSObject o = new JSObject();
+                o.put("url", u);
+                inst.notifyListeners("oauthRedirect", o, true);
+              }
+            }
+
+            @PluginMethod
+            public void takePending(PluginCall call) {
+              JSObject r = new JSObject();
+              r.put("url", pending == null ? "" : pending);
+              pending = null;
+              call.resolve(r);
+            }
+
+            @PluginMethod
+            public void openUrl(PluginCall call) {
+              try {
+                Intent i = new Intent(Intent.ACTION_VIEW, Uri.parse(call.getString("url")));
+                getActivity().startActivity(i);
+                call.resolve();
+              } catch (Exception e) {
+                call.reject(e.toString());
+              }
+            }
+
+            @PluginMethod
+            public void http(final PluginCall call) {
+              new Thread(new Runnable() {
+                public void run() {
+                  HttpURLConnection c = null;
+                  try {
+                    URL u = new URL(call.getString("url"));
+                    c = (HttpURLConnection) u.openConnection();
+                    c.setConnectTimeout(20000);
+                    c.setReadTimeout(30000);
+                    c.setRequestMethod(call.getString("method", "GET"));
+                    JS
