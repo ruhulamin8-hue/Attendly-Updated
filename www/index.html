@@ -216,7 +216,7 @@ a{color:var(--accent)}
     try {
       var d = document.createElement('pre'); d.id = 'bootErr';
       d.style.cssText = 'position:fixed;left:0;top:0;right:0;bottom:0;z-index:99999;margin:0;padding:20px;background:#fff;color:#b00020;font:14px monospace;white-space:pre-wrap;overflow:auto';
-      d.textContent = 'Attendly could not start.\n\n' + (msgs.join('\n\n') || 'No error message was reported.') + '\n\nUser agent: ' + navigator.userAgent + '\n\nSend a screenshot of this to the developer.';
+      d.textContent = 'Attendly could not start.\n\n' + (msgs.join('\n\n') || 'No error message was reported.') + '\n\nLast step reached: ' + (window.__s || 'none (the main script did not start)') + '\n\nUser agent: ' + navigator.userAgent + '\n\nSend a screenshot of this to the developer.';
       document.documentElement.appendChild(d);
     } catch(x){}
   }
@@ -227,6 +227,7 @@ a{color:var(--accent)}
 </script>
 <script>
 /* ---- Developer details ---- */
+window.__s = 'developer-details';
 const DEV = {
   name: 'Ruhul Amin Laskar',
   role: 'Exam Superintendent',
@@ -249,6 +250,7 @@ const ymd = d => d.getFullYear() + '-' + pad(d.getMonth()+1) + '-' + pad(d.getDa
 const prettyDate = s => { const [y,m,d] = s.split('-').map(Number); return new Date(y, m-1, d).toLocaleDateString('en-IN', {weekday:'short', day:'numeric', month:'short', year:'numeric'}); };
 
 /* ---- Data ---- */
+window.__s = 'data';
 function seed(){
   const subs = [
     {id:'s1', name:'Data Structures', sem:3, branch:'Computer Science'},
@@ -292,7 +294,9 @@ function load(){
 }
 const drv = {at: '', exp: 0, t: 0, busy: false, found: null, msg: '', err: false};
 function persist(){ try { localStorage.setItem(KEY, JSON.stringify(S)); } catch(e){} try { driveAuto(); } catch(e){} }
+window.__s = 'loading saved data';
 let S = load();
+window.__s = 'saved data loaded';
 const ui = {date: ymd(new Date()), subjectId: '', search: '', draft: null, dirty: false, dashSem: '', dashSub: '', importRows: null, stuSem: '', stuBranch: '', branch: '', cls: null, time: '', dashBranch: '', repSynced: '', repSem: '', repSub: '', repFill: 'saved'};
 
 function toast(msg){
@@ -311,21 +315,24 @@ const pctClass = p => p >= 75 ? '' : p >= 60 ? 'warn' : 'bad';
 const pctBadge = p => p >= 60 ? '<span class="badge ok">Eligible</span>' : p >= 40 ? '<span class="badge bad">NC</span>' : '<span class="badge bad">DC</span>';
 
 /* ---- Navigation ---- */
+window.__s = 'navigation';
 const TABS = ['attendance','import','dashboard','report','developer'];
 let tab = 'attendance';
 function go(t){ if (location.hash !== '#' + t) location.hash = t; else render(); }
 function render(){
+  window.__s = 'drawing screen';
   const h = location.hash.replace('#','');
   tab = TABS.includes(h) ? h : 'attendance';
   document.querySelectorAll('#tabs button').forEach(b => b.dataset.tab === tab ? b.setAttribute('aria-current','page') : b.removeAttribute('aria-current'));
   $('#topDate').textContent = new Date().toLocaleDateString('en-IN', {weekday:'long', day:'numeric', month:'short'});
   ({attendance: renderAttendance, import: renderImport, dashboard: renderDashboard, report: renderReport, developer: renderDeveloper})[tab]();
-  $('#view').scrollTop = 0;
+  $('#view').scrollTop = 0; window.__s = 'screen drawn';
 }
 window.addEventListener('hashchange', render);
 $('#tabs').addEventListener('click', e => { const b = e.target.closest('button'); if (b) go(b.dataset.tab); });
 
 /* ---- Window 1: Attendance ---- */
+window.__s = 'attendance-code';
 /* One saved record = one class. Key: date|subjectId|HH:MM  (older records without a time: date|subjectId) */
 const nowHM = () => { const d = new Date(); return pad(d.getHours()) + ':' + pad(d.getMinutes()); };
 const fmtT = t => { if (!t) return 'No time'; const [hh, mm] = t.split(':').map(Number); return ((hh % 12) || 12) + ':' + pad(mm) + ' ' + (hh < 12 ? 'AM' : 'PM'); };
@@ -434,6 +441,7 @@ function saveAttendance(){
 }
 
 /* ---- Window 2: Import ---- */
+window.__s = 'import-code';
 let xlsxPromise;
 function loadXLSX(){
   if (window.XLSX) return Promise.resolve();
@@ -604,6 +612,7 @@ function paintStudents(){
 }
 
 /* ---- Window 3: Dashboard ---- */
+window.__s = 'dashboard-code';
 function computeStats(branch, sem, subId){
   const students = S.students.filter(s => s.sem === sem && s.branch === branch);
   const subs = S.subjects.filter(x => x.branch === branch && x.sem === sem && (!subId || x.id === subId));
@@ -659,6 +668,7 @@ function renderDashboard(){
 }
 
 /* ---- Window 4: Report (attendance sheet as PDF, with preview) ---- */
+window.__s = 'report-code';
 /* The same drawing list feeds both the on-screen preview and the PDF file, so they always match. */
 const PW = 841.89, PH = 595.28, PM = 28;           /* A4 landscape, points */
 const FSANS = 'Arial,Helvetica,"Liberation Sans",sans-serif', FSERIF = '"Times New Roman",Times,"Liberation Serif",serif';
@@ -1048,6 +1058,4 @@ function paintDrive(){
       <label style="display:flex;gap:10px;align-items:center;margin-top:12px;font-size:14px"><input type="checkbox" id="drvAuto"${d.auto ? ' checked' : ''} style="width:20px;height:20px"> Back up automatically after changes</label>
       <button class="btn sm" id="drvOff" style="margin-top:10px">Disconnect</button>`;
   }
-  if (drv.found) x += `<div style="margin-top:12px;padding:12px;border-radius:12px;background:var(--surface2);border:1px solid var(--line)">
-      <b>Backup found</b><div style="font-size:13px;color:var(--muted);margin:4px 0 10px">Saved ${esc(fmtWhen(drv.found.when))}: ${drv.found.students} students, ${drv.found.classes} classes. Restoring replaces the data on this phone.</div>
-      <div class="row"><button class="btn primary" id="d
+  if (drv.found) x +
