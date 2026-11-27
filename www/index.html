@@ -734,8 +734,8 @@ function buildReport(o){
     T('F2', 7.5, xCat + 3, top + 12.5, 'DATE:'); T('F2', 7.5, xCat + 3, top + hh + 12.5, 'TIME:');
     for (let i = 0; i < NCOLS; i++){
       const d = dates[dc * NCOLS + i]; if (!d) continue;
-      const p = d.date.split('-'); T('F3', 6.5, xD0 + (i + .5) * dw, top + 12, p[2] + '/' + p[1], 'c');
-      if (d.time) T('F3', 5.5, xD0 + (i + .5) * dw, top + hh + 11.5, fmtT(d.time).replace(' ', ''), 'c');
+      const p = d.date.split('-'), ds = p[2] + '/' + p[1] + '/' + p[0]; T('F4', Math.min(6.5, Math.floor((dw - 4.5) / (tw('F4', ds, 1)) * 10) / 10), xD0 + (i + .5) * dw, top + 12, ds, 'c');
+      if (d.time) T('F4', 5.5, xD0 + (i + .5) * dw, top + hh + 11.5, fmtT(d.time).replace(' ', ''), 'c');
     }
 
     /* Student rows */
