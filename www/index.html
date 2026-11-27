@@ -209,6 +209,8 @@ a{color:var(--accent)}
 <div id="toast" role="status"></div>
 
 <script>
+window.__booting = true;
+window.addEventListener('error', function(e){ if (!window.__booting) return; try { var d = document.createElement('pre'); d.style.cssText = 'position:fixed;inset:0;z-index:99999;margin:0;padding:20px;background:#fff;color:#b00020;font:14px monospace;white-space:pre-wrap;overflow:auto'; d.textContent = 'Attendly could not start.\n\n' + (e.message || '') + '\n' + (e.filename || '').split('/').pop() + ':' + (e.lineno || '') + ':' + (e.colno || '') + '\n\nSend a screenshot of this to the developer.'; document.documentElement.appendChild(d); } catch(x){} });
 /* ---- Developer details ---- */
 const DEV = {
   name: 'Ruhul Amin Laskar',
@@ -1039,13 +1041,4 @@ function paintDrive(){
   const on = (id, fn) => { const b = $('#' + id); if (b) b.onclick = fn; };
   on('drvConnect', () => { const g = $('#gcid'); if (g) lsSet(CKEY, g.value.trim()); driveConnect(); });
   on('drvBackup', () => driveBackup(false)); on('drvRestore', driveCheck); on('drvDo', driveRestore);
-  on('drvNot', () => { drv.found = null; driveMsg('Nothing was changed. Automatic backup stays off until you tap Back up now or switch it on.'); });
-  on('drvOff', driveOff);
-  const a = $('#drvAuto'); if (a) a.onchange = e => { const i = driveInfo(); if (i){ i.auto = e.target.checked; lsSet(DKEY, i); if (i.auto) driveAuto(); } };
-}
-setTimeout(async function initDrive(){
-  const T = plug('AppTools'); if (!T) return;
-  try { T.addListener('oauthRedirect', e => onOAuthUrl(e && e.url)); const r = await T.takePending(); if (r && r.url) onOAuthUrl(r.url); } catch(e){}
-}, 0);
-
-/* ---- Window 5: Developer 
+  on('drvNot', () => 
