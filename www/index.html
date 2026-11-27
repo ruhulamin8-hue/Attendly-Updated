@@ -209,8 +209,23 @@ a{color:var(--accent)}
 <div id="toast" role="status"></div>
 
 <script>
-window.__booting = true;
-window.addEventListener('error', function(e){ if (!window.__booting) return; try { var d = document.createElement('pre'); d.style.cssText = 'position:fixed;inset:0;z-index:99999;margin:0;padding:20px;background:#fff;color:#b00020;font:14px monospace;white-space:pre-wrap;overflow:auto'; d.textContent = 'Attendly could not start.\n\n' + (e.message || '') + '\n' + (e.filename || '').split('/').pop() + ':' + (e.lineno || '') + ':' + (e.colno || '') + '\n\nSend a screenshot of this to the developer.'; document.documentElement.appendChild(d); } catch(x){} });
+(function(){
+  var msgs = [];
+  function show(){
+    if (window.__ok || document.getElementById('bootErr')) return;
+    try {
+      var d = document.createElement('pre'); d.id = 'bootErr';
+      d.style.cssText = 'position:fixed;left:0;top:0;right:0;bottom:0;z-index:99999;margin:0;padding:20px;background:#fff;color:#b00020;font:14px monospace;white-space:pre-wrap;overflow:auto';
+      d.textContent = 'Attendly could not start.\n\n' + (msgs.join('\n\n') || 'No error message was reported.') + '\n\nUser agent: ' + navigator.userAgent + '\n\nSend a screenshot of this to the developer.';
+      document.documentElement.appendChild(d);
+    } catch(x){}
+  }
+  window.addEventListener('error', function(e){ if (window.__ok) return; msgs.push((e.message || 'error') + ' (' + String(e.filename || '').split('/').pop() + ':' + (e.lineno || '?') + ':' + (e.colno || '?') + ')'); setTimeout(show, 50); });
+  window.addEventListener('unhandledrejection', function(e){ if (window.__ok) return; msgs.push('Promise: ' + (e.reason && e.reason.message || e.reason)); });
+  setTimeout(show, 4000);
+})();
+</script>
+<script>
 /* ---- Developer details ---- */
 const DEV = {
   name: 'Ruhul Amin Laskar',
@@ -1035,10 +1050,4 @@ function paintDrive(){
   }
   if (drv.found) x += `<div style="margin-top:12px;padding:12px;border-radius:12px;background:var(--surface2);border:1px solid var(--line)">
       <b>Backup found</b><div style="font-size:13px;color:var(--muted);margin:4px 0 10px">Saved ${esc(fmtWhen(drv.found.when))}: ${drv.found.students} students, ${drv.found.classes} classes. Restoring replaces the data on this phone.</div>
-      <div class="row"><button class="btn primary" id="drvDo">Restore this backup</button><button class="btn" id="drvNot">Not now</button></div></div>`;
-  if (drv.msg) x += `<p class="hint"${drv.err ? ' style="color:var(--bad)"' : ''}>${esc(drv.msg)}</p>`;
-  el.innerHTML = x;
-  const on = (id, fn) => { const b = $('#' + id); if (b) b.onclick = fn; };
-  on('drvConnect', () => { const g = $('#gcid'); if (g) lsSet(CKEY, g.value.trim()); driveConnect(); });
-  on('drvBackup', () => driveBackup(false)); on('drvRestore', driveCheck); on('drvDo', driveRestore);
-  on('drvNot', () => 
+      <div class="row"><button class="btn primary" id="d
