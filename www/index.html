@@ -1082,7 +1082,7 @@ const PIN_KEY = 'attendly.pin';
 const lk = {mode: 'enter', buf: '', first: '', hiddenAt: 0, busy: false, change: false};
 const isNative = () => { const c = window.Capacitor; return !!(c && c.isNativePlatform && c.isNativePlatform()); };
 const plug = n => { const c = window.Capacitor; if (!isNative()) return null; try { return (c.Plugins && c.Plugins[n]) || ((c.PluginHeaders || []).some(x => x.name === n) && c.registerPlugin ? c.registerPlugin(n) : null) || null; } catch(e){ return null; } };
-const bioPlugin = () => plug('BiometricAuth');
+const bioPlugin = () => plug('BiometricAuthNative') || plug('BiometricAuth');
 const getPin = () => { try { return JSON.parse(localStorage.getItem(PIN_KEY)); } catch(e){ return null; } };
 async function hashPin(pin, salt){
   const s = salt + ':' + pin;
@@ -1133,7 +1133,9 @@ async function lkKey(k){
 async function nativeUnlock(manual, thenReset){
   const B = bioPlugin(); if (!B) return false;
   try {
-    await B.authenticate({reason: 'Unlock Attendly', cancelTitle: 'Use PIN', allowDeviceCredential: true, androidTitle: 'Unlock Attendly', androidSubtitle: 'Use fingerprint, face or your phone PIN'});
+    const opt = {reason: 'Unlock Attendly', cancelTitle: 'Use PIN', allowDeviceCredential: true, androidTitle: 'Unlock Attendly', androidSubtitle: 'Use fingerprint, face or your phone PIN'};
+    try { await B.internalAuthenticate(opt); }
+    catch(e1){ if (e1 && /not implemented|unimplemented/i.test((e1.message || '') + (e1.code || ''))) await B.authenticate(opt); else throw e1; }
     if (thenReset){ lk.mode = 'set1'; lk.buf = ''; lk.first = ''; lkPaint(); } else unlock();
     return true;
   } catch(e){ if (manual) lkPaint('Not unlocked. Use your PIN instead.', true); return false; }
