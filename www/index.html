@@ -696,7 +696,7 @@ function buildReport(o){
   const xSl = PM, xName = xSl + 34, xRoll = xName + 146, xCat = xRoll + 100, xD0 = xCat + 44, xEnd = PW - PM;
   const dw = (xEnd - xD0) / NCOLS;
   const top = 100, hh = 18, bodyTop = top + hh * 2, rowH = 21;
-  const per = Math.floor((PH - PM - bodyTop) / rowH);
+  const per = Math.floor((PH - 30 - bodyTop) / rowH);
   const dChunks = Math.max(1, Math.ceil(dates.length / NCOLS));
   const sChunks = Math.max(1, Math.ceil(students.length / per));
   const total = dChunks * sChunks, pages = [];
@@ -761,6 +761,8 @@ function buildReport(o){
       }
     });
     if (!rows.length) T('F3', 10, PW / 2, bodyTop + 20, 'No students in this semester', 'c');
+    /* Footer, right side: signature of the teacher (every page) */
+    { const sw = tw('F2', 'Signature of the Teacher:', 10); T('F2', 10, xEnd - 120 - sw - 4, PH - 14, 'Signature of the Teacher:'); L(xEnd - 120, PH - 15, xEnd, PH - 15, .6); }
     if (total > 1) T('F3', 7, PW / 2, PH - 12, `Page ${dc * sChunks + sc + 1} of ${total}`, 'c');
     pages.push(ops);
   }
