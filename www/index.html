@@ -92,6 +92,12 @@ input:focus-visible,select:focus-visible,button:focus-visible{outline:2px solid 
 .seg button.on-a{background:var(--bad);color:#fff}
 .savebar{position:sticky;bottom:0;padding-top:8px;background:linear-gradient(to top,var(--bg) 70%,transparent)}
 .savebar .btn{width:100%}
+.slide{position:relative;width:76%;min-width:260px;max-width:100%;margin:0 auto;height:50px;border-radius:25px;background:var(--accent-soft);border:1px solid var(--accent);overflow:hidden;user-select:none;-webkit-user-select:none;touch-action:pan-y}
+.slide .fill{position:absolute;left:0;top:0;bottom:0;width:0;background:var(--accent);opacity:.35}
+.slide .lbl{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;padding-left:40px;font-weight:600;color:var(--ink);pointer-events:none;font-size:14px;white-space:nowrap}
+.slide .knob{position:absolute;left:3px;top:3px;width:42px;height:42px;border-radius:50%;background:var(--accent);color:var(--accent-ink);display:grid;place-items:center;font-size:22px;font-weight:700;cursor:grab;touch-action:none;border:0;padding:0;box-shadow:0 1px 4px rgba(0,0,0,.3)}
+.slide.dis{opacity:.5;pointer-events:none}
+.slide.go .knob{transition:left .18s ease}
 .badge{display:inline-block;font-size:11px;font-weight:600;border-radius:99px;padding:2px 9px}
 .badge.ok{background:var(--good-soft);color:var(--good)}
 .badge.dirty{background:var(--warn-soft);color:var(--warn)}
@@ -139,7 +145,7 @@ a{color:var(--accent)}
 .pvbar .t{flex:1;min-width:0;font:600 15px var(--font-head);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .pvbar .z{min-width:44px;text-align:center;font-size:12px;color:var(--muted);font-variant-numeric:tabular-nums}
 .pvbar .btn.sm{height:36px;min-width:36px}
-#pvScroll{flex:1;min-height:0;overflow:auto;padding:12px;background:var(--surface2);touch-action:pan-x pan-y pinch-zoom}
+#pvScroll{flex:1;min-height:0;overflow:auto;padding:12px;background:var(--surface2);touch-action:pan-x pan-y}
 #pvScroll canvas.sheet{display:block;margin:0 auto 14px;background:#fff;box-shadow:0 1px 3px rgba(0,0,0,.25),0 6px 18px rgba(0,0,0,.12);max-width:none}
 #lock{position:fixed;inset:0;z-index:100;background:var(--bg);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;padding:24px max(24px,env(safe-area-inset-left,0px));overflow:auto}
 #lock[hidden]{display:none}
@@ -293,7 +299,8 @@ function load(){
   return seed();
 }
 const drv = {at: '', exp: 0, t: 0, busy: false, found: null, msg: '', err: false};
-function persist(){ try { localStorage.setItem(KEY, JSON.stringify(S)); } catch(e){} try { driveAuto(); } catch(e){} }
+const lb = {t: 0, busy: false, found: null, msg: '', err: false};
+function persist(){ try { localStorage.setItem(KEY, JSON.stringify(S)); } catch(e){} try { driveAuto(); } catch(e){} try { localAuto(); } catch(e){} }
 window.__s = 'loading saved data';
 let S = load();
 window.__s = 'saved data loaded';
@@ -380,7 +387,7 @@ function renderAttendance(){
     <div class="tools"><button class="btn sm" data-act="allp">Mark all present</button><button class="btn sm" data-act="alla">Mark all absent</button></div>
     <input type="search" id="attSearch" placeholder="Search name or roll no." value="${esc(ui.search)}" style="margin-bottom:10px">
     <div class="card" id="attList" style="padding-block:6px"></div>
-    <div class="savebar"><button class="btn primary" id="attSave">Save attendance</button></div>`;
+    <div class="savebar"><div class="slide" id="attSave" role="group" aria-label="Swipe right to save attendance"><div class="fill"></div><div class="lbl">Swipe right to save attendance</div><button class="knob" type="button" aria-label="Save attendance: drag right, or press Enter">&#8250;</button></div></div>`;
   $('#attBranch').onchange = e => { ui.branch = e.target.value; ui.subjectId = ''; ui.cls = null; renderAttendance(); };
   $('#attDate').onchange = e => { ui.date = e.target.value || ymd(new Date()); ui.cls = null; loadDraft(); paintClasses(); paintAttendance(); };
   $('#attSubject').onchange = e => { ui.subjectId = e.target.value; ui.cls = null; loadDraft(); paintClasses(); paintAttendance(); };
@@ -389,7 +396,7 @@ function renderAttendance(){
   $('#attSearch').oninput = e => { ui.search = e.target.value; paintList(); };
   v.querySelector('[data-act=allp]').onclick = () => bulk('P');
   v.querySelector('[data-act=alla]').onclick = () => bulk('A');
-  $('#attSave').onclick = saveAttendance;
+  slideToSave($('#attSave'), saveAttendance);
   $('#attList').onclick = e => {
     const b = e.target.closest('button[data-m]'); if (!b) return;
     ui.draft.marks[b.dataset.id] = b.dataset.m; ui.dirty = true; paintAttendance();
@@ -411,7 +418,7 @@ function paintAttendance(){
   $('#attChips').innerHTML = `<div class="chip"><span>Students</span><b>${list.length}</b></div><div class="chip p"><span>Present</span><b>${p}</b></div><div class="chip a"><span>Absent</span><b>${a}</b></div>`;
   $('#attStatus').innerHTML = ui.dirty ? '<span class="badge dirty">Unsaved changes</span>' : (ui.draft && ui.draft.saved ? '<span class="badge ok">Saved</span>' : '<span class="badge dirty">Not saved yet</span>');
   $('#attDay').textContent = prettyDate(ui.date);
-  $('#attSave').disabled = !list.length;
+  $('#attSave').classList.toggle('dis', !list.length);
   paintList();
 }
 function paintList(){
@@ -425,6 +432,18 @@ function paintList(){
   const marks = ui.draft.marks;
   el.innerHTML = list.map(s => `<div class="stu"><div class="who"><span class="nm">${esc(s.name)}</span><span class="roll">${esc(s.roll)}</span></div>
     <div class="seg" role="group" aria-label="Mark ${esc(s.name)}"><button data-id="${s.id}" data-m="P" class="${marks[s.id]==='P'?'on-p':''}" aria-pressed="${marks[s.id]==='P'}" aria-label="Present">P</button><button data-id="${s.id}" data-m="A" class="${marks[s.id]==='A'?'on-a':''}" aria-pressed="${marks[s.id]==='A'}" aria-label="Absent">A</button></div></div>`).join('');
+}
+/* Swipe-right slider that replaces the Save attendance button */
+function slideToSave(el, action){
+  const knob = el.querySelector('.knob'), fill = el.querySelector('.fill'); let x0 = 0, drag = false, max = 0;
+  const set = px => { knob.style.left = (3 + px) + 'px'; fill.style.width = (px + 45) + 'px'; };
+  const reset = () => { el.classList.add('go'); set(0); setTimeout(() => el.classList.remove('go'), 220); };
+  const fire = () => { try { action(); } catch(e){} setTimeout(reset, 350); };
+  knob.addEventListener('pointerdown', e => { if (el.classList.contains('dis')) return; drag = true; x0 = e.clientX; max = el.clientWidth - 48; el.classList.remove('go'); try { knob.setPointerCapture(e.pointerId); } catch(x){} e.preventDefault(); });
+  knob.addEventListener('pointermove', e => { if (drag) set(Math.max(0, Math.min(max, e.clientX - x0))); });
+  const end = e => { if (!drag) return; drag = false; const px = Math.max(0, Math.min(max, e.clientX - x0)); if (px >= max * .8){ el.classList.add('go'); set(max); fire(); } else reset(); };
+  knob.addEventListener('pointerup', end); knob.addEventListener('pointercancel', () => { drag = false; reset(); });
+  knob.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ' || e.key === 'ArrowRight'){ e.preventDefault(); if (!el.classList.contains('dis')){ max = el.clientWidth - 48; el.classList.add('go'); set(max); fire(); } } });
 }
 function saveAttendance(){
   const sub = currentSubject(); if (!sub || !ui.draft) return;
@@ -866,7 +885,7 @@ function renderReport(){
 const pv = {pages: null, zoom: 1, name: ''};
 function openPreview(){
   const o = reportOpts(); pv.pages = buildReport(o).pages; pv.name = reportFileName(o); pv.zoom = 1;
-  $('#pv').hidden = false; document.body.style.overflow = 'hidden';
+  $('#pv').hidden = false; document.body.style.overflow = 'hidden'; pvLockZoom(true);
   $('#pvTitle').textContent = `Preview, ${pv.pages.length} page${pv.pages.length > 1 ? 's' : ''}`;
   $('#pvScroll').scrollTo(0, 0); paintPreview();
 }
@@ -876,8 +895,32 @@ function paintPreview(){
   pv.pages.forEach((ops, i) => paintPage(sc.children[i], ops, w));
   $('#pvZoom').textContent = Math.round(pv.zoom * 100) + '%';
 }
-function closePreview(){ $('#pv').hidden = true; document.body.style.overflow = ''; $('#pvScroll').innerHTML = ''; }
+/* While the preview is open the pinch gesture belongs to the preview, not to the whole page */
+function pvLockZoom(on){ try { const m = document.querySelector('meta[name=viewport]'); if (m) m.setAttribute('content', 'width=device-width, initial-scale=1, viewport-fit=cover' + (on ? ', maximum-scale=1, user-scalable=no' : '')); } catch(e){} }
+function closePreview(){ $('#pv').hidden = true; document.body.style.overflow = ''; pvLockZoom(false); $('#pvScroll').innerHTML = ''; }
 function setZoom(z){ pv.zoom = Math.max(.5, Math.min(4, z)); paintPreview(); }
+/* Pinch with two fingers to zoom the preview, keeping the point between the fingers in place */
+(function(){
+  const sc = $('#pvScroll'); let p0 = null, raf = 0, next = null;
+  const dist = t => Math.hypot(t[0].clientX - t[1].clientX, t[0].clientY - t[1].clientY);
+  sc.addEventListener('touchstart', e => {
+    if (e.touches.length === 2){ const r = sc.getBoundingClientRect(), cx = (e.touches[0].clientX + e.touches[1].clientX) / 2 - r.left, cy = (e.touches[0].clientY + e.touches[1].clientY) / 2 - r.top;
+      p0 = {d: dist(e.touches), z: pv.zoom, fx: (sc.scrollLeft + cx) / sc.scrollWidth, fy: (sc.scrollTop + cy) / sc.scrollHeight}; }
+  }, {passive: true});
+  sc.addEventListener('touchmove', e => {
+    if (!p0 || e.touches.length !== 2) return;
+    e.preventDefault();
+    const r = sc.getBoundingClientRect(), cx = (e.touches[0].clientX + e.touches[1].clientX) / 2 - r.left, cy = (e.touches[0].clientY + e.touches[1].clientY) / 2 - r.top;
+    next = {z: Math.max(.5, Math.min(4, p0.z * dist(e.touches) / p0.d)), cx, cy};
+    if (!raf) raf = requestAnimationFrame(() => {
+      raf = 0; if (!next || !p0) return;
+      pv.zoom = next.z; paintPreview();
+      sc.scrollLeft = p0.fx * sc.scrollWidth - next.cx; sc.scrollTop = p0.fy * sc.scrollHeight - next.cy;
+    });
+  }, {passive: false});
+  const end = e => { if (e.touches.length < 2) p0 = null; };
+  sc.addEventListener('touchend', end, {passive: true}); sc.addEventListener('touchcancel', end, {passive: true});
+})();
 $('#pvClose').onclick = closePreview;
 $('#pvIn').onclick = () => setZoom(pv.zoom * 1.25);
 $('#pvOut').onclick = () => setZoom(pv.zoom / 1.25);
@@ -1077,6 +1120,101 @@ setTimeout(async function initDrive(){
   try { T.addListener('oauthRedirect', e => onOAuthUrl(e && e.url)); const r = await T.takePending(); if (r && r.url) onOAuthUrl(r.url); } catch(e){}
 }, 0);
 
+/* ---- Local backup: a copy of the data kept on this phone, refreshed after every save ---- */
+const LKEY = 'attendly.local', LBAK = 'attendly.localbak', LFILE = 'attendly-backup.json';
+const localInfo = () => lsGet(LKEY) || {};
+const localAutoOn = () => localInfo().auto !== false;
+const localBody = () => JSON.stringify({app: 'attendly', v: 1, savedAt: new Date().toISOString(), data: S});
+function localOk(o){ return !!(o && o.app === 'attendly' && o.data && Array.isArray(o.data.subjects) && Array.isArray(o.data.students) && o.data.records && typeof o.data.records === 'object'); }
+function localMsg(text, err){ lb.msg = text || ''; lb.err = !!err; paintLocal(); }
+async function localWrite(){
+  const body = localBody(), FS = plug('Filesystem'); let where = '';
+  if (FS){
+    let doc = false, app = false;
+    try { await FS.writeFile({path: 'Attendly/' + LFILE, data: body, directory: 'DOCUMENTS', encoding: 'utf8', recursive: true}); doc = true; } catch(e){}
+    try { await FS.writeFile({path: LFILE, data: body, directory: 'DATA', encoding: 'utf8', recursive: true}); app = true; } catch(e){}
+    where = doc ? 'Documents/Attendly' : app ? 'Inside the app only' : '';
+    if (!where) throw new Error('the phone did not allow saving');
+  } else {
+    localStorage.setItem(LBAK, body); where = 'Inside the app';
+  }
+  const i = localInfo(); i.last = new Date().toISOString(); i.where = where; lsSet(LKEY, i);
+}
+async function localRead(){
+  const FS = plug('Filesystem'), found = [];
+  const add = txt => { try { const o = JSON.parse(txt); if (localOk(o)) found.push(o); } catch(e){} };
+  if (FS){
+    for (const [path, dir] of [['Attendly/' + LFILE, 'DOCUMENTS'], [LFILE, 'DATA']]){
+      try { const r = await FS.readFile({path, directory: dir, encoding: 'utf8'}); add(typeof r.data === 'string' ? r.data : ''); } catch(e){}
+    }
+  } else { try { add(localStorage.getItem(LBAK)); } catch(e){} }
+  found.sort((a, b) => String(b.savedAt).localeCompare(String(a.savedAt)));
+  return found[0] || null;
+}
+const localFound = (o, from) => ({data: o.data, when: o.savedAt, students: (o.data.students || []).length, classes: Object.keys(o.data.records || {}).length, from});
+async function localBackup(silent){
+  if (lb.busy) return; lb.busy = true;
+  try {
+    if (!silent) localMsg('Backing up...');
+    await localWrite();
+    lb.msg = silent ? '' : (localInfo().where === 'Inside the app only' ? 'Backup saved inside the app only. The phone did not allow the Documents folder.' : 'Backup saved on this phone.'); lb.err = false; if (!silent) toast('Backup saved');
+  } catch(e){ lb.msg = 'Backup failed: ' + (e.message || e); lb.err = true; }
+  finally { lb.busy = false; paintLocal(); }
+}
+function localAuto(){
+  if (!localAutoOn() || S.sample || lb.found || !(S.students.length || Object.keys(S.records).length)) return;
+  clearTimeout(lb.t); lb.t = setTimeout(() => localBackup(true), 1500);
+}
+async function localCheck(auto){
+  try {
+    const o = await localRead();
+    if (!o){ if (!auto) localMsg('No backup found on this phone yet.'); return; }
+    lb.found = localFound(o, 'phone'); lb.msg = ''; lb.err = false; paintLocal();
+  } catch(e){ if (!auto) localMsg('Could not read the backup', true); }
+}
+function localRestore(){
+  if (!lb.found) return;
+  clearTimeout(lb.t);
+  S = migrate(JSON.parse(JSON.stringify(lb.found.data))); persistRaw();
+  Object.assign(ui, {subjectId: '', branch: '', cls: null, time: '', draft: null, dirty: false, stuBranch: '', dashBranch: '', dashSem: '', dashSub: '', repSynced: '', repSub: '', repSem: '', importRows: null});
+  lb.found = null; const i = localInfo(); i.auto = true; lsSet(LKEY, i);
+  localMsg('Data restored from the backup.'); toast('Data restored');
+  try { driveAuto(); } catch(e){}
+}
+function localPick(){
+  let f = document.getElementById('lbFile');
+  if (!f){ f = document.createElement('input'); f.type = 'file'; f.id = 'lbFile'; f.accept = '.json,application/json,text/plain'; f.style.display = 'none'; document.body.appendChild(f); }
+  f.value = '';
+  f.onchange = () => {
+    const file = f.files && f.files[0]; if (!file) return;
+    const rd = new FileReader();
+    rd.onload = () => { try { const o = JSON.parse(String(rd.result)); if (!localOk(o)) throw 0; lb.found = localFound(o, 'file'); lb.msg = ''; lb.err = false; paintLocal(); } catch(e){ localMsg('That file is not an Attendly backup.', true); } };
+    rd.onerror = () => localMsg('Could not read that file.', true);
+    rd.readAsText(file);
+  };
+  f.click();
+}
+function paintLocal(){
+  const el = $('#lbBox'); if (!el) return;
+  const i = localInfo(); let x = `<div class="kv"><span>Last backup</span><b>${i.last ? esc(fmtWhen(i.last)) : 'None yet'}</b></div>`;
+  if (i.where) x += `<div class="kv"><span>Saved in</span><b style="text-align:right">${esc(i.where)}</b></div>`;
+  x += `<div class="row" style="margin-top:10px"><button class="btn primary" id="lbNow"${lb.busy ? ' disabled' : ''}>Back up now</button><button class="btn" id="lbRestore"${lb.busy ? ' disabled' : ''}>Restore</button></div>
+    <button class="btn" id="lbPick" style="margin-top:8px;width:100%">Choose backup file</button>
+    <label style="display:flex;gap:10px;align-items:center;margin-top:12px;font-size:14px"><input type="checkbox" id="lbAuto"${localAutoOn() ? ' checked' : ''} style="width:20px;height:20px"> Back up automatically after every save</label>`;
+  if (lb.found) x += `<div style="margin-top:12px;padding:12px;border-radius:12px;background:var(--surface2);border:1px solid var(--line)">
+      <b>Backup found</b><div style="font-size:13px;color:var(--muted);margin:4px 0 10px">Saved ${esc(fmtWhen(lb.found.when))}: ${lb.found.students} students, ${lb.found.classes} classes. Restoring replaces the data on this phone.</div>
+      <div class="row"><button class="btn primary" id="lbDo">Restore this backup</button><button class="btn" id="lbNot">Not now</button></div></div>`;
+  if (lb.msg) x += `<p class="hint"${lb.err ? ' style="color:var(--bad)"' : ''}>${esc(lb.msg)}</p>`;
+  else x += `<p class="hint">Keeps a copy of your data on this phone. After reinstalling the app, tap Choose backup file and pick attendly-backup.json from the Documents/Attendly folder.</p>`;
+  el.innerHTML = x;
+  const on = (id, fn) => { const b = $('#' + id); if (b) b.onclick = fn; };
+  on('lbNow', () => localBackup(false)); on('lbRestore', () => localCheck(false)); on('lbPick', localPick); on('lbDo', localRestore);
+  on('lbNot', () => { lb.found = null; const k = localInfo(); k.auto = false; lsSet(LKEY, k); localMsg('Nothing was changed. Automatic backup is off until you tap Back up now or switch it on.'); });
+  const a = $('#lbAuto'); if (a) a.onchange = e => { const k = localInfo(); k.auto = e.target.checked; lsSet(LKEY, k); if (k.auto) localAuto(); };
+}
+/* A fresh install (or lost data) with a backup still on the phone: offer it in the Developer window. */
+setTimeout(() => { if (S.sample) localCheck(true); }, 800);
+
 /* ---- Window 5: Developer ---- */
 window.__s = 'developer-code';
 async function shareApp(zip){
@@ -1094,6 +1232,7 @@ function renderDeveloper(){
   $('#view').innerHTML = `<h1 class="page-title">Developer</h1><p class="page-sub">Developer details.</p>
     <div class="card"><div class="dev">${DEV.photo ? `<img class="avatar" src="${DEV.photo}" alt="${esc(DEV.name)}" style="width:104px;height:104px;border-radius:24px;object-fit:cover;flex:none" onerror="this.style.display='none';this.nextElementSibling.style.display='grid'"><div class="avatar" aria-hidden="true" style="display:none">${esc(ini)}</div>` : `<div class="avatar" aria-hidden="true">${esc(ini)}</div>`}<div style="min-width:0"><h2 style="font-size:19px;margin:0 0 2px">${esc(DEV.name)}</h2><div style="color:var(--ink);font-weight:600;font-size:14px">${esc(DEV.role)}</div><div style="color:var(--muted)">${esc(DEV.post)}</div><div style="color:var(--muted);font-size:13px">${esc(DEV.dept)}</div><div style="color:var(--muted);font-size:13px">${esc(DEV.inst)}</div></div></div></div>
     <div class="card"><h2>Security</h2><button class="btn" id="chgPin" style="width:100%">Change PIN</button></div>
+    <div class="card"><h2>Local backup</h2><div id="lbBox"></div></div>
     <div class="card"><h2>Google Drive</h2><div id="drvBox"></div></div>
     <div class="card"><h2>Share app</h2>
       <div class="row"><button class="btn" id="shApk">Share APK</button><button class="btn" id="shZip">Share as ZIP</button></div>
@@ -1103,6 +1242,7 @@ function renderDeveloper(){
       ${DEV.github ? `<div class="kv"><span>GitHub</span><b><a href="https://github.com/${encodeURIComponent(DEV.github)}" target="_blank" rel="noopener">github.com/${esc(DEV.github)}</a></b></div>` : ''}
       ${DEV.email ? '<button class="btn sm" id="copyMail" style="margin-top:8px">Copy email</button>' : ''}</div>` : ''}`;
   $('#chgPin').onclick = changePin;
+  paintLocal();
   paintDrive();
   $('#shApk').onclick = () => shareApp(false);
   $('#shZip').onclick = () => shareApp(true);
